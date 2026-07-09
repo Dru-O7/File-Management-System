@@ -1,4 +1,4 @@
-# Office File Sharing Application (OfficeFlow)
+# Log-Management-System
 
 A secure, reactive document sharing and approval workflow application built using a Go (Echo) backend, an Angular frontend, and a PostgreSQL database.
 
