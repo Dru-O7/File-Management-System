@@ -1,12 +1,18 @@
-# Office File Sharing Application (OfficeFlow)
+# Log-Management-System
 
 A secure, reactive document sharing and approval workflow application built using a Go (Echo) backend, an Angular frontend, and a PostgreSQL database.
 
 ## System Architecture Overview
 
-- **Frontend**: Angular 17+ with Vanilla CSS (Dark Mode & Micro-animations) running on port `4200`.
-- **Backend**: Go 1.26+ (Echo Framework + GORM) running on port `8080`.
+- **Frontend**: Angular 17+ with Tailwind CSS (Light Office Theme & Micro-animations) running on port `4200`.
+- **Backend**: Go 1.26+ (Echo Framework + GORM + JWT Auth) running on port `8080`.
 - **Database**: PostgreSQL (Auto-migrations & Seeding via GORM) running on port `5432`.
+
+### Database Schema Diagram
+![Database Schema Diagram](http://www.plantuml.com/plantuml/png/fPFHQzim4CRV_LU8F6sZXQmiC4Of3LksXT9IicJipLojYoqYIzxfH2Xb__lEthouZWQ1FaRVxtIVlY--3Wp4iRQPnIqhzefCMR7IXh1WurqMTiOrG50hyj7fmfD3Kk-p31qRVbIJ6932H3rbIhrHHgiFQhDPVbANb_StLrToU7xUAGvg5EtxVFNnwtprwc8sUzsTOmt6ZWGPtZZpCw9Sq38DXB3tfFCAGYNiUl5ZBK9128mw1sxFbhUBR-lvxRq8iT4fuTV1jFP5hEN72SPbm2QSQmm5cQRDg7VKqbjZCVNKNiiRu6eWlfrUlFkZnkx5kOlr0z8pOdeKI06CfQV74IOQGnbIkmC3nw4oc_vTsrWF6YaV9l3vfbyKYT1nxlSkZRoW0sbqjxL-drSci2U3pyjOtgqNNnQhheypDO_ibqwsjQqDw-cRJFk7WdtIDmELE1uwKtVHMdYmU1YNVezI4nT0kv3y9uuUstqTujK__NFQpaq6iK_-2utI5_8WT_HnXErO3utlJjDzH2UWVMZ2NgFJiRQ_0G00)
+
+### System Architecture Diagram
+![System Architecture Diagram](http://www.plantuml.com/plantuml/png/TLLXKnit4Fr-lsB7cMdnXvZOnfXsKXe7nq079WvsoeSCav6bbQqYdwxIEIxjvBztzqxWayV10pFiUs_thVGGxq8fVBbPsomychmGNgp1kqskfFCvUkY-QG0B8H-N5NhXhFFmQb9zDHWZxzrslZBoCSSGeDiPDC22v6A9i_B98dYKfSYN5hFiPwZRATGcDwLnUG3DlnkjqMDUWXLFw4EZbNJhmkKC_PS1l4zzlNtx-Vhy75wXrgTQC-wyGfzW_SLPJvyIDd5vcI1Tx8ip4P6P-HSZqErHxT2mMwEKnQtmo7BzHYjziZyqvVHwSZ30T7ZAw9uC-ZsLc4W8FpGp5gLOY51RqNg8QjzAmlXbsEycfv3YGzbJD6fd8u5_Q69MEY-MzGJ1dzH3GXZs-TEmaCBT8NyI1pkK37pd-Do89xSfOU7-mP35b47hmXeE287euMYKBpTMU9XDH-qM-JeZNx9ApvTHKS35Sw320yGB5m54BQf8ct85C_JVZ4GuiauA6usq4mNHleQQnhAh-NmArtc9Nc91_2RNxCfCdOudO3Ib6s7gyPl1RPDSAFsLQ-XfvzsIVFQOgyePhtdfu1W-o9NRNv9hS4V7XEmXJHErznN2n3_kvr0jkwEaWiQYwvSYAwlkS2LoglbmIBIA6BClFzxTmX7zQ1zYBfrV9ul6mwwlCzrDnKX2Q-f2kVGu-tG3ppbjGP9PQgqMbOeiV0xa1UPYOV6XheoTtAmf1Mdrtlb7RTqMhamW6qyxy3jzQsSLUcZTS2OW-cn1CwWqLOVdgSURmZgX0eoDHydzwavLbE_GYke5N9aYm4_L6Z3XsKTRGvSY-I_ajNGA5GX-R4CxYoc5rr_Yi_Rm-Zm98lmAtGwr5WhcZk9oMD688mbw7RWGri9eUftja5GIKqFiVWSuwRFeyZqAZxuUrivsqJsiZWS1bn_cKVzxoShVuEyDqcbNJtuxose-zOWFAFNOZo4rE-d0LFY0T7X_2cie79ZjiP8MBw4axQ03OxIu90qT5qqFPVO29oBE9mbEEt0h2lYu-8iMo3Ak4Y--gynJ2s9n7ZzLgnp3t8iy2CbtdBIktq6MQ7R2bqNiUs_8oiHOpDvXhlZ_zFy0)
 
 ---
 
@@ -102,7 +108,7 @@ The Angular frontend provides dashboard controls for document actions, tracking 
 
 ## 4. Test Accounts
 
-The database is pre-seeded with three mock users. You can log in on the login screen by entering one of these email addresses (no password required):
+The database is pre-seeded with three mock users. You can log in on the login screen by entering one of these email addresses along with the default password **`password`**:
 
 - **Alice Smith** (Uploader / Owner): `alice@office.com`
 - **Bob Jones** (Approver): `bob@office.com`
