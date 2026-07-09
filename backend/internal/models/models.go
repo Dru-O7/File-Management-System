@@ -65,6 +65,7 @@ type WorkflowHistory struct {
 	TargetID   *uuid.UUID     `gorm:"type:uuid"` // Nullable for end states
 	Action     WorkflowAction `gorm:"size:50;not null"`
 	Remarks    string         `gorm:"type:text"`
+	Signature  string         `gorm:"type:text"` // Base64 signature image data URL
 	CreatedAt  time.Time
 
 	Document Document `gorm:"foreignKey:DocumentID"`
