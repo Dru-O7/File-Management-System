@@ -281,6 +281,11 @@ func ReplaceDocument(c echo.Context) error {
 	targetOwnerIDStr := c.FormValue("target_owner_id")
 	remarks := c.FormValue("remarks")
 
+	title := c.FormValue("title")
+	description := c.FormValue("description")
+	category := c.FormValue("category")
+	tags := c.FormValue("tags")
+
 	uploaderID, err := uuid.Parse(uploaderIDStr)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid uploader ID"})
@@ -302,6 +307,19 @@ func ReplaceDocument(c echo.Context) error {
 
 	if doc.UploaderID != uploaderID {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Only the uploader can replace or resubmit this document"})
+	}
+
+	if title != "" {
+		doc.Title = title
+	}
+	if description != "" {
+		doc.Description = description
+	}
+	if category != "" {
+		doc.Category = category
+	}
+	if tags != "" {
+		doc.Tags = tags
 	}
 
 	file, err := c.FormFile("file")

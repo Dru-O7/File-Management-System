@@ -180,7 +180,11 @@ export class DetailsComponent implements OnInit {
   }
 
   submitAction(action: string) {
-    this.openSignModal(action);
+    if (action === 'Sent Back') {
+      this.executeSubmitAction(action, '');
+    } else {
+      this.openSignModal(action);
+    }
   }
 
   confirmSignature() {
@@ -242,6 +246,10 @@ export class DetailsComponent implements OnInit {
     formData.append('uploader_id', this.currentUser.ID);
     formData.append('target_owner_id', this.selectedUser);
     formData.append('remarks', this.replaceRemarks);
+    formData.append('title', this.document.Title);
+    formData.append('description', this.document.Description);
+    formData.append('category', this.document.Category);
+    formData.append('tags', this.document.Tags);
 
     this.api.replaceDocument(this.document.ID, formData).subscribe({
       next: () => {
