@@ -1,6 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@source "./app/**/*.html";
+@source "./app/**/*.ts";
+
 
 body {
   background-color: #f1f5f9; /* light slate/gray background */
