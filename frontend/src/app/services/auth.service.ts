@@ -7,14 +7,17 @@ import { BehaviorSubject } from 'rxjs';
 export class AuthService {
   private currentUserSubject = new BehaviorSubject<any>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
-
   constructor() {
     const user = localStorage.getItem('user');
-    if (user) {
-      this.currentUserSubject.next(JSON.parse(user));
+    if (user && user !== 'undefined') {
+      try {
+        this.currentUserSubject.next(JSON.parse(user));
+      } catch (e) {
+        console.error('Failed to parse user from localStorage:', e);
+        localStorage.removeItem('user');
+      }
     }
   }
-
   setCurrentUser(user: any, token: string) {
     localStorage.setItem('user', JSON.stringify(user));
     localStorage.setItem('token', token);
