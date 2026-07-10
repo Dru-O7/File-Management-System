@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"archive/zip"
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -10,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
 
 	"office-file-sharing/backend/internal/db"
 	"office-file-sharing/backend/internal/models"
@@ -252,8 +255,15 @@ func DocumentAction(c echo.Context) error {
 		var existingSigs int64
 		db.DB.Model(&models.WorkflowHistory{}).Where("document_id = ? AND signature IS NOT NULL AND signature != ''", doc.ID).Count(&existingSigs)
 
-		if err := stampSignatureOnPDF(doc.FilePath, req.Signature, int(existingSigs)); err != nil {
-			log.Printf("Error overlaying e-signature on PDF file: %v", err)
+		filePathLower := strings.ToLower(doc.FilePath)
+		if strings.HasSuffix(filePathLower, ".pdf") {
+			if err := stampSignatureOnPDF(doc.FilePath, req.Signature, int(existingSigs)); err != nil {
+				log.Printf("Error overlaying e-signature on PDF file: %v", err)
+			}
+		} else if strings.HasSuffix(filePathLower, ".docx") {
+			if err := stampSignatureOnDocx(doc.FilePath, req.Signature, int(existingSigs)); err != nil {
+				log.Printf("Error overlaying e-signature on DOCX file: %v", err)
+			}
 		}
 	}
 
@@ -495,3 +505,221 @@ func stampSignatureOnPDF(pdfPath string, base64Signature string, existingSigCoun
 
 	return nil
 }
+
+func stampSignatureOnDocx(docxPath string, base64Signature string, existingSigCount int) error {
+	if base64Signature == "" {
+		return nil
+	}
+
+	// 1. Strip base64 prefix
+	parts := strings.Split(base64Signature, ",")
+	base64Data := parts[len(parts)-1]
+
+	// 2. Decode base64 bytes
+	dec, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		return err
+	}
+
+	// 3. Open original DOCX file
+	r, err := zip.OpenReader(docxPath)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	// 4. Create temporary output file
+	tempOutDocx := docxPath + ".signed"
+	out, err := os.Create(tempOutDocx)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	w := zip.NewWriter(out)
+	defer w.Close()
+
+	sigID := fmt.Sprintf("rIdSig%d", existingSigCount+1)
+	sigFileName := fmt.Sprintf("sig%d.png", existingSigCount+1)
+
+	// Copy and modify files
+	for _, f := range r.File {
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+
+		var content []byte
+		if f.Name == "word/document.xml" || f.Name == "word/_rels/document.xml.rels" || f.Name == "[Content_Types].xml" {
+			content, err = io.ReadAll(rc)
+			rc.Close()
+			if err != nil {
+				return err
+			}
+		}
+
+		if f.Name == "word/document.xml" {
+			// Find </w:body>
+			idx := bytes.LastIndex(content, []byte("</w:body>"))
+			if idx == -1 {
+				return fmt.Errorf("could not find closing w:body tag in word/document.xml")
+			}
+
+			// Dimensions: 2.0 inches wide by 0.8 inches tall in EMUs (1 inch = 914,400 EMUs)
+			cx := 1828800
+			cy := 731520
+			xmlInsert := fmt.Sprintf(`
+<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:pPr>
+    <w:jc w:val="right"/>
+  </w:pPr>
+  <w:r>
+    <w:rPr>
+      <w:sz w:val="20"/>
+      <w:b/>
+    </w:rPr>
+    <w:t>Signed electronically:</w:t>
+    <w:br/>
+  </w:r>
+  <w:r>
+    <w:drawing xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+      <wp:inline distT="0" distB="0" distL="0" distR="0">
+        <wp:extent cx="%d" cy="%d"/>
+        <wp:effectExtent l="0" t="0" r="0" b="0"/>
+        <wp:docPr id="1000" name="Signature"/>
+        <wp:cNvGraphicFramePr>
+          <a:graphicFrameLocks noChangeAspect="1"/>
+        </wp:cNvGraphicFramePr>
+        <a:graphic>
+          <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+            <pic:pic>
+              <pic:nvPicPr>
+                <pic:cNvPr id="1000" name="Signature"/>
+                <pic:cNvPicPr/>
+              </pic:nvPicPr>
+              <pic:blipFill>
+                <a:blip r:embed="%s"/>
+                <a:stretch>
+                  <a:fillRect/>
+                </a:stretch>
+              </pic:blipFill>
+              <pic:spPr>
+                <a:xfrm>
+                  <a:off x="0" y="0"/>
+                  <a:ext cx="%d" cy="%d"/>
+                </a:xfrm>
+                <a:prstGeom prst="rect">
+                  <a:avLst/>
+                </a:prstGeom>
+              </pic:spPr>
+            </pic:pic>
+          </a:graphicData>
+        </a:graphic>
+      </wp:inline>
+    </w:drawing>
+  </w:r>
+</w:p>`, cx, cy, sigID, cx, cy)
+
+			newContent := append(content[:idx], []byte(xmlInsert)...)
+			newContent = append(newContent, content[idx:]...)
+
+			fw, err := w.Create(f.Name)
+			if err != nil {
+				return err
+			}
+			_, err = fw.Write(newContent)
+			if err != nil {
+				return err
+			}
+
+		} else if f.Name == "word/_rels/document.xml.rels" {
+			// Find </Relationships>
+			idx := bytes.LastIndex(content, []byte("</Relationships>"))
+			if idx == -1 {
+				return fmt.Errorf("could not find closing Relationships tag in word/_rels/document.xml.rels")
+			}
+
+			relInsert := fmt.Sprintf(`  <Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/%s"/>
+`, sigID, sigFileName)
+
+			newContent := append(content[:idx], []byte(relInsert)...)
+			newContent = append(newContent, content[idx:]...)
+
+			fw, err := w.Create(f.Name)
+			if err != nil {
+				return err
+			}
+			_, err = fw.Write(newContent)
+			if err != nil {
+				return err
+			}
+
+		} else if f.Name == "[Content_Types].xml" {
+			var newContent []byte
+			if !bytes.Contains(content, []byte(`Extension="png"`)) {
+				idx := bytes.Index(content, []byte("<Types"))
+				if idx == -1 {
+					return fmt.Errorf("could not find Types tag in [Content_Types].xml")
+				}
+				closeIdx := bytes.Index(content[idx:], []byte(">"))
+				if closeIdx == -1 {
+					return fmt.Errorf("could not find end of Types tag in [Content_Types].xml")
+				}
+				insertPos := idx + closeIdx + 1
+				decl := []byte(`
+  <Default Extension="png" ContentType="image/png"/>`)
+				newContent = append(content[:insertPos], decl...)
+				newContent = append(newContent, content[insertPos:]...)
+			} else {
+				newContent = content
+			}
+
+			fw, err := w.Create(f.Name)
+			if err != nil {
+				return err
+			}
+			_, err = fw.Write(newContent)
+			if err != nil {
+				return err
+			}
+
+		} else {
+			fw, err := w.CreateHeader(&f.FileHeader)
+			if err != nil {
+				rc.Close()
+				return err
+			}
+			_, err = io.Copy(fw, rc)
+			rc.Close()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Write signature file to word/media/
+	mediaPath := fmt.Sprintf("word/media/%s", sigFileName)
+	fw, err := w.Create(mediaPath)
+	if err != nil {
+		return err
+	}
+	_, err = fw.Write(dec)
+	if err != nil {
+		return err
+	}
+
+	// Close reader and writer to flush output and release locks
+	w.Close()
+	out.Close()
+	r.Close()
+
+	// Replace the original file
+	err = os.Rename(tempOutDocx, docxPath)
+	if err != nil {
+		os.Remove(tempOutDocx)
+		return err
+	}
+
+	return nil
+}
+
