@@ -42,13 +42,16 @@ Make sure PostgreSQL is installed and running on your machine:
 
 ## 2. Backend Setup (Go)
 
-The backend exposes a REST API, connects to PostgreSQL, runs migrations, and automatically seeds test data on start.
+The backend uses a microservice architecture consisting of three components and an API gateway:
+- **Auth & User Service**: Handles user sessions, registration, and authentication (runs on port `8081`).
+- **Document & Workflow Service**: Handles document metadata, file uploads, signing, approvals, and workflow history (runs on port `8082`).
+- **API Gateway**: Exposes a unified endpoint on port `8080` and routes incoming requests dynamically.
 
 ### Prerequisites
 - Go 1.26 or higher.
 
 ### Configuration
-By default, the backend connects using:
+By default, the microservices connect using:
 `host=localhost user=postgres password=postgres dbname=office_files port=5432 sslmode=disable`
 
 To override the connection string, set the `DATABASE_URL` environment variable:
@@ -65,14 +68,27 @@ export DATABASE_URL="host=localhost user=your_user password=your_password dbname
    ```bash
    cd backend
    ```
-2. Run the application:
-   ```bash
-   go run cmd/api/main.go
-   ```
-   On successful run, GORM will migrate database tables and seed test users. The API will listen on `http://localhost:8080`.
+2. Start all services together:
+   - **On Mac/Linux**: Run the startup shell script:
+     ```bash
+     chmod +x start_microservices.sh
+     ./start_microservices.sh
+     ```
+   - **On Windows**: Open three separate terminals in the `backend` folder and run:
+     ```bash
+     # Terminal 1: Auth Service
+     go run services/auth/main.go
+     
+     # Terminal 2: Document & Workflow Service
+     go run services/document/main.go
+     
+     # Terminal 3: API Gateway
+     go run services/gateway/main.go
+     ```
+   The gateway will be available at `http://localhost:8080`.
 
 ### Running Tests
-To run backend unit tests (including the resubmission handler tests):
+To run backend unit tests:
 ```bash
 go test -v ./internal/handlers/...
 ```
@@ -123,4 +139,9 @@ The database is pre-seeded with three mock users. You can log in on the login sc
    - Uploaders can replace a document that was sent back.
    - Alternatively, they can **resubmit with comments** without modifying the original file.
 3. **Workflow Timeline**: Complete action tracking shown chronologically on a vertical history timeline.
-4. **PDF Document Preview**: Embeds an inline browser-native PDF viewer dynamically using `DomSanitizer` inside the document details page.
+4. **Document Previews (PDF & DOCX)**: 
+   - Embeds an inline browser-native PDF viewer dynamically using `DomSanitizer` inside the document details page.
+   - Embeds a client-side DOCX document viewer using the `docx-preview` library.
+5. **Electronic Signature Stamping**:
+   - Overlays user signature (drawn via HTML5 Canvas) onto PDFs.
+   - Uses custom backend parsing to unzip, inject media assets, update relationship mapping and document XML markup, and re-bundle to stamp signature onto DOCX documents.
