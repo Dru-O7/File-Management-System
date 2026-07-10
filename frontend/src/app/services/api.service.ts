@@ -40,4 +40,8 @@ export class ApiService {
   login(email: string, password?: string) {
     return this.http.post<any>(`${this.apiUrl}/auth/login`, { email, password });
   }
+
+  signup(name: string, email: string, password?: string) {
+    return this.http.post<any>(`${this.apiUrl}/auth/signup`, { name, email, password });
+  }
 }
