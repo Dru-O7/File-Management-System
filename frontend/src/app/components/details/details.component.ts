@@ -70,6 +70,12 @@ export class DetailsComponent implements OnInit {
       this.document = res.document;
       this.history = res.history;
       this.pdfCacheBuster = Date.now();
+      
+      if (this.isDocx(this.document.Filename)) {
+        setTimeout(() => {
+          this.renderDocxPreview();
+        }, 100);
+      }
     });
   }
 
@@ -224,6 +230,36 @@ export class DetailsComponent implements OnInit {
 
   isPdf(filename: string): boolean {
     return filename ? filename.toLowerCase().endsWith('.pdf') : false;
+  }
+
+  isDocx(filename: string): boolean {
+    return filename ? filename.toLowerCase().endsWith('.docx') : false;
+  }
+
+  renderDocxPreview() {
+    if (!this.document) return;
+    const token = this.auth.getToken();
+    const url = `http://localhost:8080/api/documents/${this.document.ID}/download?token=${token}&cb=${this.pdfCacheBuster}`;
+    
+    fetch(url)
+      .then(response => response.blob())
+      .then(blob => {
+        const container = document.getElementById('docx-container');
+        if (container) {
+          container.innerHTML = '';
+          import('docx-preview').then(docx => {
+            docx.renderAsync(blob, container, undefined, {
+              className: 'docx-rendered',
+              inWrapper: true,
+              ignoreWidth: false,
+              breakPages: true
+            });
+          });
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching/rendering docx:', err);
+      });
   }
 
   getPdfUrl(): SafeResourceUrl {
