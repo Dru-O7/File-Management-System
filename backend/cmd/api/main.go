@@ -93,9 +93,9 @@ func seedData(gormDB *gorm.DB) {
 			log.Fatal("Failed to hash default password:", err)
 		}
 		users := []models.User{
-			{Name: "Alice Smith", Email: "alice@office.com", PasswordHash: string(hash), Role: "Student"},
-			{Name: "Bob Jones", Email: "bob@office.com", PasswordHash: string(hash), Role: "Faculty"},
-			{Name: "Charlie Brown", Email: "charlie@office.com", PasswordHash: string(hash), Role: "Administrator"},
+			{Name: "Alice Smith", Email: "alice@school.edu", PasswordHash: string(hash), Role: "Student"},
+			{Name: "Bob Johnson", Email: "bob@school.edu", PasswordHash: string(hash), Role: "Teacher"},
+			{Name: "Charlie Brown", Email: "charlie@school.edu", PasswordHash: string(hash), Role: "Principal"},
 		}
 		for _, u := range users {
 			u.ID = uuid.New()

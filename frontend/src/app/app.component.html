@@ -1,10 +1,19 @@
 <nav class="px-8 py-4 border-b border-slate-200 flex justify-between items-center bg-white/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
   <h2 class="m-0 text-slate-800 text-xl font-bold flex items-center gap-2">
-    <div class="w-6 h-6 bg-blue-600 rounded-md shadow-md shadow-blue-500/10"></div>
-    Log-Management-System
+    <div class="w-6 h-6 bg-indigo-600 rounded-md shadow-md shadow-indigo-500/20 flex items-center justify-center">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4"><path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.948 49.948 0 0 0-9.902 3.912l-.003.002c-.114.06-.227.119-.34.18a.75.75 0 0 1-.707 0A50.88 50.88 0 0 0 7.5 12.173v-.224c0-.131.067-.248.172-.311a54.615 54.615 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.123 56.123 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" /><path d="M13.06 15.473a48.45 48.45 0 0 1 7.666-3.282c.134 1.414.22 2.843.255 4.284a.75.75 0 0 1-.46.71 47.87 47.87 0 0 1-8.105 2.571.75.75 0 0 1-.832-.536 48.448 48.448 0 0 1 1.476-4.147Z" /><path d="M11.605 15.71a48.45 48.45 0 0 0-7.666-3.282c-.134 1.414-.22 2.843-.255 4.284a.75.75 0 0 0 .46.71 47.87 47.87 0 0 0 8.105 2.571.75.75 0 0 0 .832-.536 48.448 48.448 0 0 0-1.476-4.147Z" /></svg>
+    </div>
+    SchoolSync
   </h2>
   <div *ngIf="authService.currentUser$ | async as user" class="flex items-center gap-4">
-    <span class="text-slate-500 text-sm">Welcome, <strong class="text-slate-800 font-semibold">{{ user.Name }}</strong></span>
+    <div class="flex items-center gap-2">
+      <span class="text-slate-500 text-sm">Welcome, <strong class="text-slate-800 font-semibold">{{ user.Name || user.name }}</strong></span>
+      <span class="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider" [ngClass]="{
+        'bg-indigo-100 text-indigo-700': (user.Role || user.role) === 'Student',
+        'bg-emerald-100 text-emerald-700': (user.Role || user.role) === 'Teacher',
+        'bg-amber-100 text-amber-700': (user.Role || user.role) === 'Principal'
+      }">{{ user.Role || user.role }}</span>
+    </div>
     <button class="text-slate-600 hover:text-slate-900 border border-slate-300 hover:bg-slate-50 font-medium rounded-lg text-xs px-4 py-2 transition-all duration-300 cursor-pointer" (click)="logout()">Logout</button>
   </div>
 </nav>

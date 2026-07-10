@@ -18,7 +18,7 @@ export class UploadComponent implements OnInit {
   targetOwnerId: string = '';
   title: string = '';
   description: string = '';
-  category: string = 'Document';
+  category: string = 'Assignment';
   tags: string = '';
   error: string = '';
 

@@ -1,15 +1,15 @@
 <div class="mt-4 max-w-5xl mx-auto">
   <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-bold text-slate-800">Dashboard</h2>
-    <button class="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-5 rounded-xl transition-all duration-300 shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 flex items-center gap-2 cursor-pointer" (click)="goToUpload()">
-      <span class="text-lg leading-none font-bold">+</span> Upload New Document
+    <button class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 px-5 rounded-xl transition-all duration-300 shadow-md shadow-indigo-500/10 hover:shadow-indigo-500/20 flex items-center gap-2 cursor-pointer" (click)="goToUpload()">
+      <span class="text-lg leading-none font-bold">+</span> Submit New Document
     </button>
   </div>
 
   <!-- Search input bar -->
   <div class="mb-6">
     <div class="relative">
-      <input type="text" class="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 shadow-xs" [(ngModel)]="searchText" (ngModelChange)="onSearchChange()" placeholder="Search documents by title, description, category, unique number, or tags...">
+      <input type="text" class="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 shadow-xs" [(ngModel)]="searchText" (ngModelChange)="onSearchChange()" placeholder="Search by title, description, category, ref. number, or tags...">
       <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
           <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.602 10.602Z" />
@@ -19,10 +19,10 @@
   </div>
 
   <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-    <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-6">My Documents</h3>
+    <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-6">My Submissions</h3>
     
     <div *ngIf="documents.length === 0" class="text-center py-12 text-slate-400">
-      No documents found. Try adjusting your search query!
+            No submissions found. Try adjusting your search query!
     </div>
 
     <div class="space-y-3">
@@ -37,8 +37,8 @@
             {{ doc.Description }}
           </div>
           <div class="text-xs text-slate-400 flex flex-wrap gap-x-4 gap-y-1 items-center">
-            <span>Uploader: <strong class="text-slate-600 font-medium">{{ doc.Uploader.Name }}</strong></span>
-            <span>Current Owner: <strong class="text-slate-600 font-medium">{{ doc.CurrentOwner.Name }}</strong></span>
+            <span>Submitted by: <strong class="text-slate-600 font-medium">{{ doc.Uploader.Name }}</strong></span>
+            <span>Pending with: <strong class="text-slate-600 font-medium">{{ doc.CurrentOwner.Name }}</strong></span>
             <span>Date: {{ doc.CreatedAt | date:'short' }}</span>
             <span *ngIf="doc.Tags" class="flex gap-1 items-center ml-2">
               <span *ngFor="let tag of doc.Tags.split(',')" class="bg-slate-200/50 text-slate-600 text-[10px] px-1.5 py-0.5 rounded-sm border border-slate-350/10">#{{ tag.trim() }}</span>
