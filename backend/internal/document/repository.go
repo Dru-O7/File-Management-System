@@ -30,7 +30,7 @@ func (r *repository) Create(doc *models.Document) error {
 }
 
 func (r *repository) Save(doc *models.Document) error {
-	return r.db.Save(doc).Error
+	return r.db.Omit("Uploader", "CurrentOwner").Save(doc).Error
 }
 
 func (r *repository) GetByID(id uuid.UUID) (*models.Document, error) {

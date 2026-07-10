@@ -260,7 +260,13 @@ export class DetailsComponent implements OnInit {
               ignoreFonts: false,
               breakPages: false,
               debug: false,
-              trimXmlDeclaration: true
+              trimXmlDeclaration: true,
+              useBase64URL: true,
+              renderHeaders: false,
+              renderFooters: false,
+              renderFootnotes: false,
+              renderEndnotes: false,
+              experimental: false
             }).catch(err => {
               console.error('Docx render error:', err);
               container.innerHTML = `<div class="flex items-center justify-center h-full text-rose-500 font-semibold p-6 text-center border-2 border-dashed border-rose-200 rounded-xl bg-rose-50/50">

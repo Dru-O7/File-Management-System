@@ -38,7 +38,7 @@
         <button class="text-slate-600 hover:text-slate-900 border border-slate-300 hover:bg-slate-50 font-semibold rounded-xl text-sm px-5 py-2.5 transition-all duration-300 cursor-pointer w-full sm:w-auto" (click)="download()">Download Document</button>
 
         <!-- Actions panel if current user is owner -->
-        <div *ngIf="document.CurrentOwnerID === currentUser.ID && document.Status !== 'Approved' && document.Status !== 'Rejected'">
+        <div *ngIf="document.CurrentOwnerID === currentUser.ID && document.Status !== 'Approved' && document.Status !== 'Rejected' && document.Status !== 'Sent Back'">
           <hr class="border-slate-200 my-6">
           <h3 class="text-lg font-bold text-slate-800">Action Required</h3>
           
