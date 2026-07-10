@@ -21,16 +21,20 @@ func AuthMiddleware(jwtSecret []byte) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			authHeader := c.Request().Header.Get("Authorization")
-			if authHeader == "" {
-				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Missing authorization token"})
-			}
+			var tokenString string
 
-			parts := strings.Split(authHeader, " ")
-			if len(parts) != 2 || parts[0] != "Bearer" {
-				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid authorization header format"})
+			if authHeader != "" {
+				parts := strings.Split(authHeader, " ")
+				if len(parts) != 2 || parts[0] != "Bearer" {
+					return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid authorization header format"})
+				}
+				tokenString = parts[1]
+			} else {
+				tokenString = c.QueryParam("token")
+				if tokenString == "" {
+					return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Missing authorization token"})
+				}
 			}
-
-			tokenString := parts[1]
 			claims := &JWTCustomClaims{}
 
 			token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
