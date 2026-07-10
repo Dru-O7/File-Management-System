@@ -19,7 +19,16 @@ func Init(databaseURL string) *gorm.DB {
 
 	log.Println("Database connected successfully")
 
-	err = db.AutoMigrate(&models.User{}, &models.Document{}, &models.WorkflowHistory{})
+	err = db.AutoMigrate(
+		&models.School{},
+		&models.User{},
+		&models.ParentChild{},
+		&models.DocumentType{},
+		&models.Document{},
+		&models.DocumentPendingApprover{},
+		&models.WorkflowHistory{},
+		&models.Notification{},
+	)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}

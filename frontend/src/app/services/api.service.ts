@@ -13,6 +13,10 @@ export class ApiService {
     return this.http.get<any[]>(`${this.apiUrl}/users`);
   }
 
+  getDocumentTypes() {
+    return this.http.get<any[]>(`${this.apiUrl}/document-types`);
+  }
+
   getDocuments(userId: string, search?: string) {
     let url = `${this.apiUrl}/documents?user_id=${userId}`;
     if (search) {

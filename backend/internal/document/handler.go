@@ -3,6 +3,8 @@ package document
 import (
 	"net/http"
 
+	"office-file-sharing/backend/internal/shared/models"
+
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
@@ -158,4 +160,14 @@ func (h *Handler) TakeAction(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) GetDocumentTypes(c echo.Context) error {
+	var list []models.DocumentType
+	// Fetch all active document types
+	err := h.service.(*service).repo.(*repository).db.Find(&list, "active = ?", true).Error
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch document types"})
+	}
+	return c.JSON(http.StatusOK, list)
 }

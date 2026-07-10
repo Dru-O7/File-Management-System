@@ -14,6 +14,7 @@ import { AuthService } from '../../services/auth.service';
 })
 export class UploadComponent implements OnInit {
   users: any[] = [];
+  documentTypes: any[] = [];
   selectedFile: File | null = null;
   targetOwnerId: string = '';
   title: string = '';
@@ -28,6 +29,18 @@ export class UploadComponent implements OnInit {
     if (!this.auth.getCurrentUser()) {
       this.router.navigate(['/login']);
     }
+
+    // Load dynamic document types
+    this.api.getDocumentTypes().subscribe({
+      next: (res) => {
+        this.documentTypes = res;
+        if (this.documentTypes.length > 0) {
+          this.category = this.documentTypes[0].Name;
+        }
+      },
+      error: (err) => console.error('Failed to load document types:', err)
+    });
+
     this.api.getUsers().subscribe({
       next: (res) => {
         const currentId = this.auth.getCurrentUser()?.ID || this.auth.getCurrentUser()?.id;
@@ -41,6 +54,11 @@ export class UploadComponent implements OnInit {
         this.error = 'Could not load approvers list. Please refresh.';
       }
     });
+  }
+
+  needsParentCosign(): boolean {
+    const selected = this.documentTypes.find(t => t.Name === this.category);
+    return selected ? selected.NeedsParentCosign : false;
   }
 
   onFileSelected(event: any) {

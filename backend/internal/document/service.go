@@ -66,32 +66,110 @@ func (s *service) Upload(uploaderID, targetOwnerID uuid.UUID, title, description
 
 	uniqueNum := fmt.Sprintf("DOC-%d", time.Now().UnixNano()/1e6)
 
+	// Fetch DocumentType configuration based on category slug
+	slug := strings.ToLower(strings.ReplaceAll(category, " ", "-"))
+	var schoolID *uuid.UUID
+	var uploaderUser models.User
+	if err := s.repo.(*repository).db.First(&uploaderUser, "id = ?", uploaderID).Error; err == nil {
+		schoolID = uploaderUser.SchoolID
+	}
+
+	var docTypeID *uuid.UUID
+	var dt *models.DocumentType
+	if schoolID != nil {
+		dt, err = s.repo.GetDocumentTypeBySlug(*schoolID, slug)
+		if err == nil {
+			docTypeID = &dt.ID
+		}
+	}
+
+	// Check if parent co-sign is required
+	assignedOwnerID := targetOwnerID
+	parentRouted := false
+	if dt != nil && dt.NeedsParentCosign {
+		parent, errParent := s.repo.GetParentByStudent(uploaderID)
+		if errParent == nil && parent != nil {
+			assignedOwnerID = parent.ID
+			parentRouted = true
+		} else {
+			log.Printf("Warning: DocumentType '%s' requires parent co-sign, but no parent was found for uploader '%s'. Falling back to Teacher.", dt.Name, uploaderID)
+		}
+	}
+
 	docID := uuid.New()
 	doc := &models.Document{
 		ID:             docID,
+		SchoolID:       schoolID,
+		DocumentTypeID: docTypeID,
 		Filename:       fileHeader.Filename,
 		FilePath:       destPath,
 		UploaderID:     uploaderID,
-		CurrentOwnerID: targetOwnerID,
+		CurrentOwnerID: assignedOwnerID,
 		Status:         models.StatusPendingApproval,
 		Title:          title,
 		Description:    description,
 		UniqueNumber:   uniqueNum,
 		Tags:           tags,
 		Category:       category,
+		Version:        1,
+		CurrentStage:   1,
+	}
+
+	// Calculate SLA deadline if type is resolved
+	if dt != nil {
+		deadline := time.Now().Add(time.Duration(dt.SlaHours) * time.Hour)
+		doc.SlaDeadline = &deadline
 	}
 
 	if err := s.repo.Create(doc); err != nil {
 		return nil, err
 	}
 
-	history := &models.WorkflowHistory{
+	// Setup initial pending approver records
+	pendingApprover := &models.DocumentPendingApprover{
 		ID:         uuid.New(),
 		DocumentID: docID,
+		UserID:     assignedOwnerID,
+		Stage:      1,
+		Status:     "Pending",
+	}
+	if err := s.repo.CreatePendingApprover(pendingApprover); err != nil {
+		log.Printf("Warning: Failed to create pending approver: %v", err)
+	}
+
+	// Queue notifications asynchronously in the DB
+	notifPayload := fmt.Sprintf(`{"document_title": "%s", "uploader_name": "%s"}`, title, uploaderUser.Name)
+	newNotification := &models.Notification{
+		ID:          uuid.New(),
+		SchoolID:    schoolID,
+		RecipientID: assignedOwnerID,
+		DocumentID:  &docID,
+		Channel:     "email",
+		Template:    "action_required",
+		Payload:     notifPayload,
+		Status:      "pending",
+	}
+	if err := s.repo.(*repository).db.Create(newNotification).Error; err != nil {
+		log.Printf("Warning: Failed to queue notification: %v", err)
+	}
+
+	historyRemarks := "Document submitted for approval"
+	if parentRouted {
+		historyRemarks = "Document submitted. Routed to Parent for mandatory co-signing."
+	}
+
+	history := &models.WorkflowHistory{
+		ID:         uuid.New(),
+		SchoolID:   schoolID,
+		DocumentID: docID,
 		ActorID:    uploaderID,
-		TargetID:   &targetOwnerID,
+		TargetID:   &assignedOwnerID,
 		Action:     models.ActionUploaded,
-		Remarks:    "Document submitted for approval",
+		Remarks:    historyRemarks,
+		ActorRole:  uploaderUser.Role,
+		Stage:      1,
+		Version:    1,
+		EventType:  "state_transition",
 	}
 
 	if err := s.repo.CreateHistory(history); err != nil {
@@ -160,60 +238,96 @@ func (s *service) GetFilePathForDownload(docID, authenticatedUserID uuid.UUID) (
 }
 
 func (s *service) Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, title, description, category, tags string, fileHeader *multipart.FileHeader, remarks string) (*DocumentResponse, error) {
-	doc, err := s.repo.GetByID(docID)
+	oldDoc, err := s.repo.GetByID(docID)
 	if err != nil {
 		return nil, errors.New("document not found")
 	}
 
-	if doc.UploaderID != authenticatedUserID {
+	if oldDoc.UploaderID != authenticatedUserID {
 		return nil, errors.New("only the original uploader is authorized to replace or resubmit this document")
 	}
 
-	if doc.Status != models.StatusSentBack {
+	if oldDoc.Status != models.StatusSentBack {
 		return nil, errors.New("document must be in 'Sent Back' status to be replaced or resubmitted")
 	}
 
+	// Resolve target path (either new uploaded file or keep old reference path)
+	destPath := oldDoc.FilePath
+	filename := oldDoc.Filename
 	fileReplaced := false
+
 	if fileHeader != nil {
 		src, err := fileHeader.Open()
 		if err == nil {
 			defer src.Close()
 			uniquePrefix := fmt.Sprintf("%d_", time.Now().Unix())
 			safeFilename := uniquePrefix + filepath.Base(fileHeader.Filename)
-			destPath := filepath.Join(s.uploadsDir, safeFilename)
+			destPath = filepath.Join(s.uploadsDir, safeFilename)
 
 			dst, err := os.Create(destPath)
 			if err == nil {
 				defer dst.Close()
 				if _, err = io.Copy(dst, src); err == nil {
-					os.Remove(doc.FilePath)
-					doc.Filename = fileHeader.Filename
-					doc.FilePath = destPath
+					filename = fileHeader.Filename
 					fileReplaced = true
 				}
 			}
 		}
 	}
 
-	if title != "" {
-		doc.Title = title
-	}
-	if description != "" {
-		doc.Description = description
-	}
-	if category != "" {
-		doc.Category = category
-	}
-	if tags != "" {
-		doc.Tags = tags
+	// Create NEW Document version record instead of mutating the old row
+	newDocID := uuid.New()
+	newVersion := oldDoc.Version + 1
+
+	var user models.User
+	s.repo.(*repository).db.First(&user, "id = ?", authenticatedUserID)
+
+	var dt *models.DocumentType
+	if oldDoc.DocumentTypeID != nil {
+		dt, _ = s.repo.GetDocumentTypeByID(*oldDoc.DocumentTypeID)
 	}
 
-	doc.Status = models.StatusPendingApproval
-	doc.CurrentOwnerID = targetOwnerID
+	newDoc := &models.Document{
+		ID:             newDocID,
+		SchoolID:       oldDoc.SchoolID,
+		DocumentTypeID: oldDoc.DocumentTypeID,
+		Filename:       filename,
+		FilePath:       destPath,
+		UploaderID:     oldDoc.UploaderID,
+		CurrentOwnerID: targetOwnerID,
+		Status:         models.StatusPendingApproval,
+		Title:          fallbackString(title, oldDoc.Title),
+		Description:    fallbackString(description, oldDoc.Description),
+		UniqueNumber:   oldDoc.UniqueNumber,
+		Tags:           fallbackString(tags, oldDoc.Tags),
+		Category:       fallbackString(category, oldDoc.Category),
+		Version:        newVersion,
+		ParentDocID:    &oldDoc.ID,
+		CurrentStage:   1,
+	}
 
-	if err := s.repo.Save(doc); err != nil {
+	if dt != nil {
+		deadline := time.Now().Add(time.Duration(dt.SlaHours) * time.Hour)
+		newDoc.SlaDeadline = &deadline
+	}
+
+	if err := s.repo.Create(newDoc); err != nil {
 		return nil, err
 	}
+
+	// Setup pending approver
+	pendingApprover := &models.DocumentPendingApprover{
+		ID:         uuid.New(),
+		DocumentID: newDocID,
+		UserID:     targetOwnerID,
+		Stage:      1,
+		Status:     "Pending",
+	}
+	s.repo.CreatePendingApprover(pendingApprover)
+
+	// Update old doc status to reflect it's been superseded
+	oldDoc.Status = models.StatusDraft // Archive old version out of active approval list
+	s.repo.Save(oldDoc)
 
 	wfAction := models.ActionResubmitted
 	if fileReplaced {
@@ -222,16 +336,44 @@ func (s *service) Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, t
 
 	history := &models.WorkflowHistory{
 		ID:         uuid.New(),
-		DocumentID: doc.ID,
+		SchoolID:   newDoc.SchoolID,
+		DocumentID: newDocID,
 		ActorID:    authenticatedUserID,
 		TargetID:   &targetOwnerID,
 		Action:     wfAction,
 		Remarks:    remarks,
+		ActorRole:  user.Role,
+		Stage:      1,
+		Version:    newVersion,
+		EventType:  "state_transition",
 	}
 	_ = s.repo.CreateHistory(history)
 
-	updatedDoc, _ := s.repo.GetByID(doc.ID)
+	// Keep version chain linked in history
+	oldHistory := &models.WorkflowHistory{
+		ID:         uuid.New(),
+		SchoolID:   oldDoc.SchoolID,
+		DocumentID: oldDoc.ID,
+		ActorID:    authenticatedUserID,
+		TargetID:   &targetOwnerID,
+		Action:     wfAction,
+		Remarks:    fmt.Sprintf("Superseded by Version %d", newVersion),
+		ActorRole:  user.Role,
+		Stage:      oldDoc.CurrentStage,
+		Version:    oldDoc.Version,
+		EventType:  "state_transition",
+	}
+	_ = s.repo.CreateHistory(oldHistory)
+
+	updatedDoc, _ := s.repo.GetByID(newDocID)
 	return s.toDocumentResponse(updatedDoc), nil
+}
+
+func fallbackString(val, backup string) string {
+	if val == "" {
+		return backup
+	}
+	return val
 }
 
 func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionRequest) (*DocumentResponse, error) {
@@ -240,31 +382,109 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 		return nil, errors.New("document not found")
 	}
 
-	if doc.CurrentOwnerID != authenticatedUserID {
-		return nil, errors.New("you are not authorized to act on this document as you are not the current owner")
+	// Verify authorization: check current owner or stage-pending approvers
+	authorized := doc.CurrentOwnerID == authenticatedUserID
+	if !authorized {
+		approvers, _ := s.repo.GetPendingApprovers(doc.ID, doc.CurrentStage)
+		for _, a := range approvers {
+			if a.UserID == authenticatedUserID && a.Status == "Pending" {
+				authorized = true
+				break
+			}
+		}
+	}
+	if !authorized {
+		return nil, errors.New("you are not authorized to act on this document at its current stage")
 	}
 
+	var actorUser models.User
+	s.repo.(*repository).db.First(&actorUser, "id = ?", authenticatedUserID)
+
+	wfAction := models.WorkflowAction(req.Action)
 	var newStatus models.DocumentStatus
 	var nextOwnerID uuid.UUID
-	wfAction := models.WorkflowAction(req.Action)
 
 	switch wfAction {
 	case models.ActionApproved:
 		newStatus = models.StatusApproved
 		nextOwnerID = authenticatedUserID
+
+		// Mark current approver as done
+		s.repo.MarkApproverStatus(doc.ID, authenticatedUserID, doc.CurrentStage, "Approved")
+
+		// If a DocumentType and stages are defined, resolve if we need to advance stages
+		if doc.DocumentTypeID != nil {
+			dt, errDT := s.repo.GetDocumentTypeByID(*doc.DocumentTypeID)
+			if errDT == nil {
+				// Example stages JSON parsing: stages list could determine next stage owner
+				// For now, if we have target ID specified in request, we treat it as Forward / Advance
+				if req.TargetID != nil {
+					newStatus = models.StatusPendingApproval
+					nextOwnerID = *req.TargetID
+					doc.CurrentStage = doc.CurrentStage + 1
+
+					// Register next stage pending approver
+					nextApprover := &models.DocumentPendingApprover{
+						ID:         uuid.New(),
+						DocumentID: doc.ID,
+						UserID:     *req.TargetID,
+						Stage:      doc.CurrentStage,
+						Status:     "Pending",
+					}
+					s.repo.CreatePendingApprover(nextApprover)
+
+					// Set new SLA deadline
+					deadline := time.Now().Add(time.Duration(dt.SlaHours) * time.Hour)
+					doc.SlaDeadline = &deadline
+					wfAction = models.ActionApproved // keep approved as action name
+				}
+			}
+		}
+
 	case models.ActionRejected:
+		if strings.TrimSpace(req.Remarks) == "" {
+			return nil, errors.New("rejection remarks/reason is required")
+		}
 		newStatus = models.StatusRejected
 		nextOwnerID = doc.UploaderID
+		s.repo.MarkApproverStatus(doc.ID, authenticatedUserID, doc.CurrentStage, "Rejected")
+
 	case models.ActionSentBack:
+		if strings.TrimSpace(req.Remarks) == "" {
+			return nil, errors.New("remarks are required to send the document back for revision")
+		}
 		newStatus = models.StatusSentBack
 		nextOwnerID = doc.UploaderID
+		s.repo.MarkApproverStatus(doc.ID, authenticatedUserID, doc.CurrentStage, "Sent Back")
+
 	case models.ActionForwarded, "Forward":
-		newStatus = models.StatusPendingApproval
 		if req.TargetID == nil {
 			return nil, errors.New("target ID is required to forward this document")
 		}
+		newStatus = models.StatusPendingApproval
 		nextOwnerID = *req.TargetID
 		wfAction = models.ActionForwarded
+
+		// Transition pending stage approver
+		s.repo.MarkApproverStatus(doc.ID, authenticatedUserID, doc.CurrentStage, "Forwarded")
+		doc.CurrentStage = doc.CurrentStage + 1
+
+		nextApprover := &models.DocumentPendingApprover{
+			ID:         uuid.New(),
+			DocumentID: doc.ID,
+			UserID:     *req.TargetID,
+			Stage:      doc.CurrentStage,
+			Status:     "Pending",
+		}
+		s.repo.CreatePendingApprover(nextApprover)
+
+		if doc.DocumentTypeID != nil {
+			if dt, errDT := s.repo.GetDocumentTypeByID(*doc.DocumentTypeID); errDT == nil {
+				deadline := time.Now().Add(time.Duration(dt.SlaHours) * time.Hour)
+				doc.SlaDeadline = &deadline
+			}
+		}
+
 	default:
 		return nil, errors.New("invalid action name")
 	}
@@ -272,6 +492,7 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 	doc.Status = newStatus
 	doc.CurrentOwnerID = nextOwnerID
 
+	// Draw or type digital signature stamping
 	if req.Signature != "" {
 		existingSigs, _ := s.repo.CountSignatures(doc.ID)
 		filePathLower := strings.ToLower(doc.FilePath)
@@ -290,14 +511,40 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 		return nil, err
 	}
 
+	// Queue notification to the next reviewer or uploader on action taken
+	targetNotifRecipient := doc.CurrentOwnerID
+	template := "action_required"
+	if doc.Status == models.StatusApproved || doc.Status == models.StatusRejected || doc.Status == models.StatusSentBack {
+		targetNotifRecipient = doc.UploaderID
+		template = string(doc.Status)
+	}
+
+	notifPayload := fmt.Sprintf(`{"document_title": "%s", "actor_name": "%s", "action": "%s"}`, doc.Title, actorUser.Name, req.Action)
+	newNotification := &models.Notification{
+		ID:          uuid.New(),
+		SchoolID:    doc.SchoolID,
+		RecipientID: targetNotifRecipient,
+		DocumentID:  &doc.ID,
+		Channel:     "email",
+		Template:    strings.ToLower(strings.ReplaceAll(template, " ", "_")),
+		Payload:     notifPayload,
+		Status:      "pending",
+	}
+	_ = s.repo.(*repository).db.Create(newNotification).Error
+
 	history := &models.WorkflowHistory{
 		ID:         uuid.New(),
+		SchoolID:   doc.SchoolID,
 		DocumentID: doc.ID,
 		ActorID:    authenticatedUserID,
 		TargetID:   req.TargetID,
 		Action:     wfAction,
 		Remarks:    req.Remarks,
 		Signature:  req.Signature,
+		ActorRole:  actorUser.Role,
+		Stage:      doc.CurrentStage,
+		Version:    doc.Version,
+		EventType:  "state_transition",
 	}
 	_ = s.repo.CreateHistory(history)
 
@@ -306,16 +553,61 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 }
 
 func (s *service) authorizeDocAccess(doc *models.Document, userID uuid.UUID) error {
+	var user models.User
+	if err := s.repo.(*repository).db.First(&user, "id = ?", userID).Error; err != nil {
+		return errors.New("user not found")
+	}
+
+	// Principal has school-wide access
+	if user.Role == "Principal" {
+		if doc.SchoolID != nil && user.SchoolID != nil && *doc.SchoolID == *user.SchoolID {
+			return nil
+		}
+		return errors.New("you are not authorized to view this document (outside school scope)")
+	}
+
+	// Owner or uploader has direct access
 	if doc.UploaderID == userID || doc.CurrentOwnerID == userID {
 		return nil
 	}
 
-	histories, err := s.repo.GetHistoryByDocumentID(doc.ID)
-	if err == nil {
-		for _, h := range histories {
-			if h.ActorID == userID {
+	// Parent has access if document belongs to child
+	if user.Role == "Parent" {
+		var count int64
+		s.repo.(*repository).db.Model(&models.ParentChild{}).
+			Where("parent_id = ? AND child_id = ?", userID, doc.UploaderID).
+			Count(&count)
+		if count > 0 {
+			return nil
+		}
+	}
+
+	// Teacher has access to class submissions or history
+	if user.Role == "Teacher" {
+		// 1. Check if uploader is a Student in Teacher's ClassSection
+		var uploaderUser models.User
+		if err := s.repo.(*repository).db.First(&uploaderUser, "id = ?", doc.UploaderID).Error; err == nil {
+			if uploaderUser.Role == "Student" && uploaderUser.ClassSection != "" && uploaderUser.ClassSection == user.ClassSection {
 				return nil
 			}
+		}
+
+		// 2. Check workflow histories
+		histories, err := s.repo.GetHistoryByDocumentID(doc.ID)
+		if err == nil {
+			for _, h := range histories {
+				if h.ActorID == userID {
+					return nil
+				}
+			}
+		}
+	}
+
+	// Verify stage pending approvers
+	approvers, _ := s.repo.GetPendingApprovers(doc.ID, doc.CurrentStage)
+	for _, a := range approvers {
+		if a.UserID == userID {
+			return nil
 		}
 	}
 
