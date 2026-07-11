@@ -115,6 +115,11 @@ func startSLAScheduler(db *gorm.DB) {
 			// Capture old owner for notification
 			oldOwnerID := doc.CurrentOwnerID
 
+			oldDeadlineStr := "Unknown"
+			if doc.SlaDeadline != nil {
+				oldDeadlineStr = doc.SlaDeadline.Format(time.RFC822)
+			}
+
 			// Update document state: escalate to Principal
 			doc.CurrentOwnerID = principal.ID
 			// Push SLA deadline out (e.g. Principal has 48 more hours to act)
@@ -130,7 +135,7 @@ func startSLAScheduler(db *gorm.DB) {
 				ActorID:    uuid.Nil, // System action
 				TargetID:   &principal.ID,
 				Action:     "Escalated",
-				Remarks:    fmt.Sprintf("SLA breached (deadline was %s). Auto-escalated to Principal.", doc.SlaDeadline.Format(time.RFC822)),
+				Remarks:    fmt.Sprintf("SLA breached (deadline was %s). Auto-escalated to Principal.", oldDeadlineStr),
 				ActorRole:  "System",
 				Stage:      doc.CurrentStage,
 				Version:    doc.Version,
@@ -253,10 +258,10 @@ func seedData(gormDB *gorm.DB) {
 				SchoolID:          school.ID,
 				Name:              "Leave Application",
 				Slug:              "leave-application",
-				WorkflowStages:    `[{"stage": 1, "role": "Parent", "label": "Parent Approval", "optional": false}, {"stage": 2, "role": "Teacher", "label": "Class Teacher", "optional": false}, {"stage": 3, "role": "Principal", "label": "Principal Approval", "optional": true, "condition": "leave_days > 3"}]`,
+				WorkflowStages:    `[{"stage": 1, "role": "Teacher", "label": "Class Teacher", "optional": false}, {"stage": 2, "role": "Principal", "label": "Principal Approval", "optional": true, "condition": "leave_days > 3"}]`,
 				RequiredFields:    `["from_date", "to_date", "reason", "leave_days"]`,
 				SlaHours:          48,
-				NeedsParentCosign: true,
+				NeedsParentCosign: false,
 			},
 			{
 				SchoolID:          school.ID,
@@ -271,10 +276,10 @@ func seedData(gormDB *gorm.DB) {
 				SchoolID:          school.ID,
 				Name:              "Permission Slip",
 				Slug:              "permission-slip",
-				WorkflowStages:    `[{"stage": 1, "role": "Parent", "label": "Parent Consent", "optional": false}, {"stage": 2, "role": "Teacher", "label": "Class Teacher", "optional": false}]`,
+				WorkflowStages:    `[{"stage": 1, "role": "Teacher", "label": "Class Teacher", "optional": false}]`,
 				RequiredFields:    `["event_name", "event_date"]`,
 				SlaHours:          24,
-				NeedsParentCosign: true,
+				NeedsParentCosign: false,
 			},
 			{
 				SchoolID:          school.ID,

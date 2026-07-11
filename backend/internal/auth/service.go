@@ -75,11 +75,19 @@ func (s *service) Signup(req SignupRequest) (*AuthResponse, error) {
 		return nil, errors.New("failed to encrypt password")
 	}
 
+	var defaultSchool models.School
+	var schoolID *uuid.UUID
+	if err := s.repo.(*repository).db.First(&defaultSchool).Error; err == nil {
+		schoolID = &defaultSchool.ID
+	}
+
 	newUser := &models.User{
 		ID:           uuid.New(),
 		Name:         name,
 		Email:        email,
 		PasswordHash: string(hash),
+		SchoolID:     schoolID,
+		Role:         "Student", // Default signup role
 	}
 
 	if err := s.repo.Create(newUser); err != nil {

@@ -21,6 +21,7 @@ export class DetailsComponent implements OnInit {
   actionRemarks: string = '';
   selectedUser: string = '';
   users: any[] = [];
+  documentTypes: any[] = [];
   
   selectedFile: File | null = null;
   replaceError: string = '';
@@ -61,6 +62,13 @@ export class DetailsComponent implements OnInit {
       error: (err) => console.error('Failed to load users:', err)
     });
 
+    this.api.getDocumentTypes().subscribe({
+      next: (types) => {
+        this.documentTypes = types || [];
+      },
+      error: (err) => console.error('Failed to load document types:', err)
+    });
+
     this.route.paramMap.subscribe(params => {
       const id = params.get('id');
       if (id) {
@@ -74,6 +82,7 @@ export class DetailsComponent implements OnInit {
       this.document = res.document;
       this.history = res.history;
       this.pdfCacheBuster = Date.now();
+      this.draftContent = res.document.DraftSpace || '';
       
       if (this.isDocx(this.document.Filename)) {
         setTimeout(() => {
@@ -293,6 +302,14 @@ export class DetailsComponent implements OnInit {
     return this.sanitizer.bypassSecurityTrustUrl(signature);
   }
 
+  newNote: string = '';
+  draftContent: string = '';
+  selectedAttachmentFile: File | null = null;
+  noteError: string = '';
+  draftError: string = '';
+  attachmentError: string = '';
+  referralUser: string = '';
+
   replaceFile() {
     const formData = new FormData();
     if (this.selectedFile) {
@@ -305,6 +322,8 @@ export class DetailsComponent implements OnInit {
     formData.append('description', this.document.Description);
     formData.append('category', this.document.Category);
     formData.append('tags', this.document.Tags);
+    formData.append('priority', this.document.Priority);
+    formData.append('direction', this.document.Direction);
 
     this.api.replaceDocument(this.document.ID, formData).subscribe({
       next: () => {
@@ -319,5 +338,98 @@ export class DetailsComponent implements OnInit {
         this.replaceError = 'Failed to resubmit document.';
       }
     });
+  }
+
+  submitNote() {
+    if (!this.newNote.trim()) {
+      this.noteError = 'Note content cannot be empty.';
+      return;
+    }
+    this.api.appendNote(this.document.ID, this.newNote).subscribe({
+      next: () => {
+        this.newNote = '';
+        this.noteError = '';
+        this.loadDetails(this.document.ID);
+      },
+      error: (err) => {
+        this.noteError = 'Failed to append note to the noting sheet.';
+      }
+    });
+  }
+
+  saveDraft() {
+    this.api.saveDraft(this.document.ID, this.draftContent).subscribe({
+      next: () => {
+        this.draftError = '';
+        this.loadDetails(this.document.ID);
+        alert('Draft order/letter saved successfully.');
+      },
+      error: (err) => {
+        this.draftError = 'Failed to save draft.';
+      }
+    });
+  }
+
+  onAttachmentSelected(event: any) {
+    this.selectedAttachmentFile = event.target.files[0];
+  }
+
+  uploadAttachment() {
+    if (!this.selectedAttachmentFile) {
+      this.attachmentError = 'Please select a file to enclose.';
+      return;
+    }
+    this.api.addAttachment(this.document.ID, this.selectedAttachmentFile).subscribe({
+      next: () => {
+        this.selectedAttachmentFile = null;
+        this.attachmentError = '';
+        const fileInput = document.getElementById('att-file-input') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+        this.loadDetails(this.document.ID);
+      },
+      error: (err) => {
+        this.attachmentError = 'Failed to upload attachment.';
+      }
+    });
+  }
+
+  recallDocument() {
+    if (confirm('Are you sure you want to recall this document back to your queue?')) {
+      this.api.recallDocument(this.document.ID).subscribe({
+        next: () => {
+          this.loadDetails(this.document.ID);
+        },
+        error: (err) => {
+          alert('Failed to recall document. It may have already been acted on.');
+        }
+      });
+    }
+  }
+
+  submitReferral(action: string) {
+    if (action === 'Refer' && !this.referralUser) {
+      alert('Please select a user to refer this document to.');
+      return;
+    }
+    const remarks = prompt(`Enter optional remarks for this ${action.toLowerCase()} action:`);
+    const actionData = {
+      action: action,
+      target_id: action === 'Refer' ? this.referralUser : null,
+      remarks: remarks || `${action} action completed.`
+    };
+    this.api.submitAction(this.document.ID, actionData).subscribe({
+      next: () => {
+        this.loadDetails(this.document.ID);
+      },
+      error: (err) => {
+        alert(`Failed to complete ${action.toLowerCase()} action.`);
+      }
+    });
+  }
+
+  getDownloadAttachmentUrl(att: any): string {
+    const token = this.auth.getToken();
+    const id = att.id || att.ID;
+    return `http://localhost:8080/api/attachments/${id}/download?token=${token}&cb=${Date.now()}`;
   }
 }

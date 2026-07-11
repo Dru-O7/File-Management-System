@@ -43,7 +43,7 @@ func (r *repository) Save(doc *models.Document) error {
 
 func (r *repository) GetByID(id uuid.UUID) (*models.Document, error) {
 	var doc models.Document
-	if err := r.db.Preload("Uploader").Preload("CurrentOwner").First(&doc, "id = ?", id).Error; err != nil {
+	if err := r.db.Preload("Uploader").Preload("CurrentOwner").Preload("Attachments").First(&doc, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
 	return &doc, nil
@@ -56,7 +56,7 @@ func (r *repository) ListByUser(userID uuid.UUID, search string) ([]models.Docum
 	}
 
 	var documents []models.Document
-	query := r.db.Preload("Uploader").Preload("CurrentOwner")
+	query := r.db.Preload("Uploader").Preload("CurrentOwner").Preload("Attachments")
 
 	// Apply RBAC filters based on Greenwood High School roles
 	switch user.Role {

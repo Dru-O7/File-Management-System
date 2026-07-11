@@ -23,12 +23,19 @@ import (
 )
 
 type Service interface {
-	Upload(uploaderID, targetOwnerID uuid.UUID, title, description, category, tags string, fileHeader *multipart.FileHeader) (*DocumentResponse, error)
+	Upload(uploaderID, targetOwnerID uuid.UUID, title, description, category, tags, priority, direction string, fileHeader *multipart.FileHeader) (*DocumentResponse, error)
 	List(userID uuid.UUID, search string) ([]DocumentResponse, error)
 	GetDetails(docID, authenticatedUserID uuid.UUID) (*DocumentDetailsResponse, error)
 	GetFilePathForDownload(docID, authenticatedUserID uuid.UUID) (string, error)
-	Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, title, description, category, tags string, fileHeader *multipart.FileHeader, remarks string) (*DocumentResponse, error)
+	Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, title, description, category, tags, priority, direction string, fileHeader *multipart.FileHeader, remarks string) (*DocumentResponse, error)
 	TakeAction(docID, authenticatedUserID uuid.UUID, req ActionRequest) (*DocumentResponse, error)
+	Recall(docID, authenticatedUserID uuid.UUID) (*DocumentResponse, error)
+	AppendNote(docID, authenticatedUserID uuid.UUID, note string, actorIP string) (*DocumentResponse, error)
+	SaveDraft(docID, authenticatedUserID uuid.UUID, draft string) (*DocumentResponse, error)
+	AddAttachment(docID, authenticatedUserID uuid.UUID, fileHeader *multipart.FileHeader) (*AttachmentResponse, error)
+	GetAttachmentFilePathForDownload(attID, authenticatedUserID uuid.UUID) (string, error)
+	GetNotifications(recipientID uuid.UUID) ([]models.Notification, error)
+	GetReports(schoolID uuid.UUID) (interface{}, error)
 }
 
 type service struct {
@@ -43,7 +50,7 @@ func NewService(repo Repository, uploadsDir string) Service {
 	return &service{repo: repo, uploadsDir: uploadsDir}
 }
 
-func (s *service) Upload(uploaderID, targetOwnerID uuid.UUID, title, description, category, tags string, fileHeader *multipart.FileHeader) (*DocumentResponse, error) {
+func (s *service) Upload(uploaderID, targetOwnerID uuid.UUID, title, description, category, tags, priority, direction string, fileHeader *multipart.FileHeader) (*DocumentResponse, error) {
 	src, err := fileHeader.Open()
 	if err != nil {
 		return nil, err
@@ -83,18 +90,7 @@ func (s *service) Upload(uploaderID, targetOwnerID uuid.UUID, title, description
 		}
 	}
 
-	// Check if parent co-sign is required
 	assignedOwnerID := targetOwnerID
-	parentRouted := false
-	if dt != nil && dt.NeedsParentCosign {
-		parent, errParent := s.repo.GetParentByStudent(uploaderID)
-		if errParent == nil && parent != nil {
-			assignedOwnerID = parent.ID
-			parentRouted = true
-		} else {
-			log.Printf("Warning: DocumentType '%s' requires parent co-sign, but no parent was found for uploader '%s'. Falling back to Teacher.", dt.Name, uploaderID)
-		}
-	}
 
 	docID := uuid.New()
 	doc := &models.Document{
@@ -111,6 +107,9 @@ func (s *service) Upload(uploaderID, targetOwnerID uuid.UUID, title, description
 		UniqueNumber:   uniqueNum,
 		Tags:           tags,
 		Category:       category,
+		Priority:       fallbackString(priority, "Normal"),
+		Direction:      fallbackString(direction, "Inward"),
+		AssignedAt:     time.Now(),
 		Version:        1,
 		CurrentStage:   1,
 	}
@@ -154,9 +153,6 @@ func (s *service) Upload(uploaderID, targetOwnerID uuid.UUID, title, description
 	}
 
 	historyRemarks := "Document submitted for approval"
-	if parentRouted {
-		historyRemarks = "Document submitted. Routed to Parent for mandatory co-signing."
-	}
 
 	history := &models.WorkflowHistory{
 		ID:         uuid.New(),
@@ -237,7 +233,7 @@ func (s *service) GetFilePathForDownload(docID, authenticatedUserID uuid.UUID) (
 	return doc.FilePath, nil
 }
 
-func (s *service) Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, title, description, category, tags string, fileHeader *multipart.FileHeader, remarks string) (*DocumentResponse, error) {
+func (s *service) Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, title, description, category, tags, priority, direction string, fileHeader *multipart.FileHeader, remarks string) (*DocumentResponse, error) {
 	oldDoc, err := s.repo.GetByID(docID)
 	if err != nil {
 		return nil, errors.New("document not found")
@@ -301,6 +297,9 @@ func (s *service) Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, t
 		UniqueNumber:   oldDoc.UniqueNumber,
 		Tags:           fallbackString(tags, oldDoc.Tags),
 		Category:       fallbackString(category, oldDoc.Category),
+		Priority:       fallbackString(priority, oldDoc.Priority),
+		Direction:      fallbackString(direction, oldDoc.Direction),
+		AssignedAt:     time.Now(),
 		Version:        newVersion,
 		ParentDocID:    &oldDoc.ID,
 		CurrentStage:   1,
@@ -416,8 +415,6 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 		if doc.DocumentTypeID != nil {
 			dt, errDT := s.repo.GetDocumentTypeByID(*doc.DocumentTypeID)
 			if errDT == nil {
-				// Example stages JSON parsing: stages list could determine next stage owner
-				// For now, if we have target ID specified in request, we treat it as Forward / Advance
 				if req.TargetID != nil {
 					newStatus = models.StatusPendingApproval
 					nextOwnerID = *req.TargetID
@@ -485,12 +482,46 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 			}
 		}
 
+	case "Refer":
+		if req.TargetID == nil {
+			return nil, errors.New("target ID is required to refer this document for opinion")
+		}
+		newStatus = models.StatusPendingApproval
+		nextOwnerID = *req.TargetID
+		wfAction = "Referred"
+
+		// Save current owner in referral placeholder
+		originalOwner := doc.CurrentOwnerID
+		doc.ReferralOwnerID = &originalOwner
+
+	case "Return":
+		if doc.ReferralOwnerID == nil {
+			return nil, errors.New("this document has not been referred, cannot perform Return action")
+		}
+		newStatus = models.StatusPendingApproval
+		nextOwnerID = *doc.ReferralOwnerID
+		doc.ReferralOwnerID = nil
+		wfAction = "Returned"
+
+	case "Close":
+		newStatus = models.StatusClosed
+		nextOwnerID = doc.UploaderID
+		wfAction = "Closed"
+
+	case "Archive":
+		newStatus = models.StatusArchived
+		nextOwnerID = doc.UploaderID
+		wfAction = "Archived"
+
 	default:
 		return nil, errors.New("invalid action name")
 	}
 
 	doc.Status = newStatus
-	doc.CurrentOwnerID = nextOwnerID
+	if doc.CurrentOwnerID != nextOwnerID {
+		doc.CurrentOwnerID = nextOwnerID
+		doc.AssignedAt = time.Now()
+	}
 
 	// Draw or type digital signature stamping
 	if req.Signature != "" {
@@ -615,22 +646,40 @@ func (s *service) authorizeDocAccess(doc *models.Document, userID uuid.UUID) err
 }
 
 func (s *service) toDocumentResponse(d *models.Document) *DocumentResponse {
+	attachments := make([]AttachmentResponse, len(d.Attachments))
+	for i, att := range d.Attachments {
+		attachments[i] = AttachmentResponse{
+			ID:         att.ID,
+			DocumentID: att.DocumentID,
+			Filename:   att.Filename,
+			UploadedBy: att.UploadedBy,
+			CreatedAt:  att.CreatedAt,
+		}
+	}
+
 	return &DocumentResponse{
-		ID:             d.ID,
-		Filename:       d.Filename,
-		FilePath:       d.FilePath,
-		UploaderID:     d.UploaderID,
-		CurrentOwnerID: d.CurrentOwnerID,
-		Status:         d.Status,
-		Title:          d.Title,
-		Description:    d.Description,
-		UniqueNumber:   d.UniqueNumber,
-		Tags:           d.Tags,
-		Category:       d.Category,
-		CreatedAt:      d.CreatedAt,
-		UpdatedAt:      d.UpdatedAt,
-		Uploader:       d.Uploader,
-		CurrentOwner:   d.CurrentOwner,
+		ID:              d.ID,
+		Filename:        d.Filename,
+		FilePath:        d.FilePath,
+		UploaderID:      d.UploaderID,
+		CurrentOwnerID:  d.CurrentOwnerID,
+		Status:          d.Status,
+		Title:           d.Title,
+		Description:     d.Description,
+		UniqueNumber:    d.UniqueNumber,
+		Tags:            d.Tags,
+		Category:        d.Category,
+		Priority:        d.Priority,
+		Direction:       d.Direction,
+		AssignedAt:      d.AssignedAt,
+		ReferralOwnerID: d.ReferralOwnerID,
+		NotingSheet:     d.NotingSheet,
+		DraftSpace:      d.DraftSpace,
+		CreatedAt:       d.CreatedAt,
+		UpdatedAt:       d.UpdatedAt,
+		Uploader:        d.Uploader,
+		CurrentOwner:    d.CurrentOwner,
+		Attachments:     attachments,
 	}
 }
 
@@ -647,6 +696,364 @@ func (s *service) toHistoryResponse(h *models.WorkflowHistory) *HistoryResponse 
 		Actor:      h.Actor,
 		Target:     h.Target,
 	}
+}
+
+func (s *service) Recall(docID, authenticatedUserID uuid.UUID) (*DocumentResponse, error) {
+	doc, err := s.repo.GetByID(docID)
+	if err != nil {
+		return nil, errors.New("document not found")
+	}
+
+	if doc.UploaderID != authenticatedUserID {
+		return nil, errors.New("only the original uploader is authorized to recall this document")
+	}
+
+	if doc.Status != models.StatusPendingApproval {
+		return nil, errors.New("only documents in 'Pending Approval' status can be recalled")
+	}
+
+	// Update status to Sent Back (allows easy resubmission UI flow)
+	doc.Status = models.StatusSentBack
+	doc.CurrentOwnerID = doc.UploaderID
+	doc.AssignedAt = time.Now()
+
+	// Save updates
+	if err := s.repo.Save(doc); err != nil {
+		return nil, err
+	}
+
+	// Update pending approver stage statuses as skipped
+	s.repo.(*repository).db.Model(&models.DocumentPendingApprover{}).
+		Where("document_id = ? AND stage = ? AND status = 'Pending'", doc.ID, doc.CurrentStage).
+		Update("status", "Skipped")
+
+	var actorUser models.User
+	s.repo.(*repository).db.First(&actorUser, "id = ?", authenticatedUserID)
+
+	// Write recall action to workflow history log
+	history := &models.WorkflowHistory{
+		ID:         uuid.New(),
+		SchoolID:   doc.SchoolID,
+		DocumentID: doc.ID,
+		ActorID:    authenticatedUserID,
+		Action:     "Recalled",
+		Remarks:    "File recalled back to draft/revision stage by uploader",
+		ActorRole:  actorUser.Role,
+		Stage:      doc.CurrentStage,
+		Version:    doc.Version,
+		EventType:  "state_transition",
+	}
+	_ = s.repo.CreateHistory(history)
+
+	updatedDoc, _ := s.repo.GetByID(docID)
+	return s.toDocumentResponse(updatedDoc), nil
+}
+
+func (s *service) AppendNote(docID, authenticatedUserID uuid.UUID, note string, actorIP string) (*DocumentResponse, error) {
+	doc, err := s.repo.GetByID(docID)
+	if err != nil {
+		return nil, errors.New("document not found")
+	}
+
+	if err := s.authorizeDocAccess(doc, authenticatedUserID); err != nil {
+		return nil, err
+	}
+
+	var actorUser models.User
+	if err := s.repo.(*repository).db.First(&actorUser, "id = ?", authenticatedUserID).Error; err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	timestampStr := time.Now().Format("2006-01-02 15:04:05 MST")
+	entry := fmt.Sprintf("[%s] - %s (%s) IP: %s\n%s\n\n", timestampStr, actorUser.Name, actorUser.Role, actorIP, note)
+	doc.NotingSheet = doc.NotingSheet + entry
+
+	if err := s.repo.Save(doc); err != nil {
+		return nil, err
+	}
+
+	// Record general note addition to history
+	history := &models.WorkflowHistory{
+		ID:         uuid.New(),
+		SchoolID:   doc.SchoolID,
+		DocumentID: doc.ID,
+		ActorID:    authenticatedUserID,
+		Action:     "Note Added",
+		Remarks:    note,
+		ActorRole:  actorUser.Role,
+		Stage:      doc.CurrentStage,
+		Version:    doc.Version,
+		ActorIP:    actorIP,
+		EventType:  "note_added",
+	}
+	_ = s.repo.CreateHistory(history)
+
+	updatedDoc, _ := s.repo.GetByID(docID)
+	return s.toDocumentResponse(updatedDoc), nil
+}
+
+func (s *service) SaveDraft(docID, authenticatedUserID uuid.UUID, draft string) (*DocumentResponse, error) {
+	doc, err := s.repo.GetByID(docID)
+	if err != nil {
+		return nil, errors.New("document not found")
+	}
+
+	// Only original uploader or current owner can edit the draft letters/orders space
+	if doc.UploaderID != authenticatedUserID && doc.CurrentOwnerID != authenticatedUserID {
+		return nil, errors.New("not authorized to edit drafts for this document")
+	}
+
+	doc.DraftSpace = draft
+	if err := s.repo.Save(doc); err != nil {
+		return nil, err
+	}
+
+	var actorUser models.User
+	s.repo.(*repository).db.First(&actorUser, "id = ?", authenticatedUserID)
+
+	history := &models.WorkflowHistory{
+		ID:         uuid.New(),
+		SchoolID:   doc.SchoolID,
+		DocumentID: doc.ID,
+		ActorID:    authenticatedUserID,
+		Action:     "Draft Updated",
+		Remarks:    "Updated draft letter/order template",
+		ActorRole:  actorUser.Role,
+		Stage:      doc.CurrentStage,
+		Version:    doc.Version,
+		EventType:  "draft_updated",
+	}
+	_ = s.repo.CreateHistory(history)
+
+	updatedDoc, _ := s.repo.GetByID(docID)
+	return s.toDocumentResponse(updatedDoc), nil
+}
+
+func (s *service) AddAttachment(docID, authenticatedUserID uuid.UUID, fileHeader *multipart.FileHeader) (*AttachmentResponse, error) {
+	doc, err := s.repo.GetByID(docID)
+	if err != nil {
+		return nil, errors.New("document not found")
+	}
+
+	if err := s.authorizeDocAccess(doc, authenticatedUserID); err != nil {
+		return nil, err
+	}
+
+	src, err := fileHeader.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer src.Close()
+
+	uniquePrefix := fmt.Sprintf("%d_att_", time.Now().Unix())
+	safeFilename := uniquePrefix + filepath.Base(fileHeader.Filename)
+	destPath := filepath.Join(s.uploadsDir, safeFilename)
+
+	dst, err := os.Create(destPath)
+	if err != nil {
+		return nil, err
+	}
+	defer dst.Close()
+
+	if _, err = io.Copy(dst, src); err != nil {
+		return nil, err
+	}
+
+	att := &models.Attachment{
+		ID:         uuid.New(),
+		DocumentID: doc.ID,
+		Filename:   fileHeader.Filename,
+		FilePath:   destPath,
+		UploadedBy: authenticatedUserID,
+		CreatedAt:  time.Now(),
+	}
+
+	if err := s.repo.(*repository).db.Create(att).Error; err != nil {
+		return nil, err
+	}
+
+	return &AttachmentResponse{
+		ID:         att.ID,
+		DocumentID: att.DocumentID,
+		Filename:   att.Filename,
+		UploadedBy: att.UploadedBy,
+		CreatedAt:  att.CreatedAt,
+	}, nil
+}
+
+func (s *service) GetAttachmentFilePathForDownload(attID, authenticatedUserID uuid.UUID) (string, error) {
+	var att models.Attachment
+	if err := s.repo.(*repository).db.First(&att, "id = ?", attID).Error; err != nil {
+		return "", errors.New("attachment not found")
+	}
+
+	doc, err := s.repo.GetByID(att.DocumentID)
+	if err != nil {
+		return "", errors.New("parent document not found")
+	}
+
+	if err := s.authorizeDocAccess(doc, authenticatedUserID); err != nil {
+		return "", err
+	}
+
+	return att.FilePath, nil
+}
+
+func (s *service) GetNotifications(recipientID uuid.UUID) ([]models.Notification, error) {
+	var list []models.Notification
+	err := s.repo.(*repository).db.Where("recipient_id = ?", recipientID).Order("created_at desc").Limit(20).Find(&list).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Automatically mark pending notifications as read/sent
+	now := time.Now()
+	s.repo.(*repository).db.Model(&models.Notification{}).
+		Where("recipient_id = ? AND status = 'pending'", recipientID).
+		Updates(map[string]interface{}{"status": "sent", "sent_at": &now})
+
+	return list, nil
+}
+
+func (s *service) GetReports(schoolID uuid.UUID) (interface{}, error) {
+	var docs []models.Document
+	err := s.repo.(*repository).db.Preload("Uploader").Preload("CurrentOwner").Where("school_id = ?", schoolID).Find(&docs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var histories []models.WorkflowHistory
+	err = s.repo.(*repository).db.Preload("Actor").Where("school_id = ?", schoolID).Order("created_at asc").Find(&histories).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 1. Avg turnaround time calculations
+	docHistories := make(map[uuid.UUID][]models.WorkflowHistory)
+	for _, h := range histories {
+		docHistories[h.DocumentID] = append(docHistories[h.DocumentID], h)
+	}
+
+	var totalDuration time.Duration
+	var count int
+	for _, logs := range docHistories {
+		if len(logs) > 1 {
+			for i := 0; i < len(logs)-1; i++ {
+				diff := logs[i+1].CreatedAt.Sub(logs[i].CreatedAt)
+				totalDuration += diff
+				count++
+			}
+		}
+	}
+
+	avgTurnaroundHours := 0.0
+	if count > 0 {
+		avgTurnaroundHours = totalDuration.Hours() / float64(count)
+	}
+
+	// 2. Count statuses and SLA breaches
+	totalActiveFiles := 0
+	totalApprovedFiles := 0
+	slaBreaches := 0
+	now := time.Now()
+
+	for _, doc := range docs {
+		if doc.Status == models.StatusPendingApproval || doc.Status == models.StatusDraft || doc.Status == models.StatusSentBack {
+			totalActiveFiles++
+		}
+		if doc.Status == models.StatusApproved {
+			totalApprovedFiles++
+		}
+		if (doc.Status == models.StatusPendingApproval || doc.Status == models.StatusSentBack) && doc.SlaDeadline != nil && doc.SlaDeadline.Before(now) {
+			slaBreaches++
+		}
+	}
+
+	// 3. User Pendency Breakdown with usernames, roles, and count
+	type UserKey struct {
+		Name string
+		Role string
+	}
+	pendencyMap := make(map[UserKey]int)
+	for _, doc := range docs {
+		if doc.Status == models.StatusPendingApproval || doc.Status == models.StatusSentBack {
+			ownerName := "Unknown"
+			ownerRole := "Staff"
+			if doc.CurrentOwnerID != uuid.Nil {
+				ownerName = doc.CurrentOwner.Name
+				ownerRole = doc.CurrentOwner.Role
+			}
+			pendencyMap[UserKey{Name: ownerName, Role: ownerRole}]++
+		}
+	}
+
+	type UserPendency struct {
+		Username     string `json:"username"`
+		Role         string `json:"role"`
+		PendingCount int    `json:"pending_count"`
+	}
+	userPendencies := []UserPendency{}
+	for k, v := range pendencyMap {
+		userPendencies = append(userPendencies, UserPendency{
+			Username:     k.Name,
+			Role:         k.Role,
+			PendingCount: v,
+		})
+	}
+
+	// 4. Category workloads
+	categoryMap := make(map[string]int)
+	for _, doc := range docs {
+		if doc.Category != "" {
+			categoryMap[doc.Category]++
+		}
+	}
+
+	type CategoryWorkload struct {
+		Category string `json:"category"`
+		Count    int    `json:"count"`
+	}
+	categoryWorkloads := []CategoryWorkload{}
+	for k, v := range categoryMap {
+		categoryWorkloads = append(categoryWorkloads, CategoryWorkload{
+			Category: k,
+			Count:    v,
+		})
+	}
+
+	// 5. Movement logs list
+	type MovementLog struct {
+		DocumentTitle string    `json:"document_title"`
+		ActorName     string    `json:"actor_name"`
+		Action        string    `json:"action"`
+		Remarks       string    `json:"remarks"`
+		Timestamp     time.Time `json:"timestamp"`
+	}
+	movements := []MovementLog{}
+	for _, h := range histories {
+		actorName := "System"
+		if h.Actor.Name != "" {
+			actorName = h.Actor.Name
+		}
+		movements = append(movements, MovementLog{
+			DocumentTitle: h.Remarks, // Using remarks or description
+			ActorName:     actorName,
+			Action:        string(h.Action),
+			Remarks:       h.Remarks,
+			Timestamp:     h.CreatedAt,
+		})
+	}
+
+	return map[string]interface{}{
+		"total_active_files":   totalActiveFiles,
+		"total_approved_files": totalApprovedFiles,
+		"avg_turnaround_hours": avgTurnaroundHours,
+		"sla_breaches":         slaBreaches,
+		"user_pendency":        userPendencies,
+		"category_workloads":   categoryWorkloads,
+		"movements":            movements,
+		"total_count":          len(docs),
+	}, nil
 }
 
 func stampSignatureOnPDF(pdfPath string, base64Signature string, existingSigCount int) error {

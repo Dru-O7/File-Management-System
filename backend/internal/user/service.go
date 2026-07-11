@@ -35,16 +35,19 @@ func (s *service) GetUsers(actorID uuid.UUID) ([]UserResponse, error) {
 		if u.ID == actorID {
 			continue // skip self
 		}
+		if u.Role == "Parent" {
+			continue // Parents are disabled / not needed for now
+		}
 
 		switch actor.Role {
 		case "Principal":
-			// Principal sees everyone in school
+			// Principal sees everyone in school (excluding parents since they are skipped)
 			if u.SchoolID != nil && actor.SchoolID != nil && *u.SchoolID == *actor.SchoolID {
 				filtered = append(filtered, u)
 			}
 		case "Teacher":
-			// Teacher sees principal, parents, and students of their class section
-			if u.Role == "Principal" || u.Role == "Teacher" || u.Role == "Parent" || (u.Role == "Student" && u.ClassSection == actor.ClassSection) {
+			// Teacher sees principal, teachers, and students of their class section
+			if u.Role == "Principal" || u.Role == "Teacher" || (u.Role == "Student" && u.ClassSection == actor.ClassSection) {
 				filtered = append(filtered, u)
 			}
 		case "Student":
@@ -52,21 +55,6 @@ func (s *service) GetUsers(actorID uuid.UUID) ([]UserResponse, error) {
 			if u.Role == "Teacher" || u.Role == "Principal" {
 				filtered = append(filtered, u)
 			}
-		case "Parent":
-			// Parent sees teachers, Principal, and their own children
-			isChild := false
-			if u.Role == "Student" {
-				var count int64
-				s.repo.(*repository).db.Model(&models.ParentChild{}).
-					Where("parent_id = ? AND child_id = ?", actorID, u.ID).
-					Count(&count)
-				isChild = count > 0
-			}
-			if u.Role == "Teacher" || u.Role == "Principal" || isChild {
-				filtered = append(filtered, u)
-			}
-		default:
-			filtered = append(filtered, u)
 		}
 	}
 

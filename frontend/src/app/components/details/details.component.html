@@ -1,5 +1,14 @@
 <div class="mt-4 max-w-7xl mx-auto px-4" *ngIf="document">
-  <button class="app-btn-secondary mb-6 cursor-pointer" (click)="router.navigate(['/dashboard'])">&larr; Back to Dashboard</button>
+  <div class="flex justify-between items-center mb-6">
+    <button class="app-btn-secondary cursor-pointer" (click)="router.navigate(['/dashboard'])">&larr; Back to Dashboard</button>
+    
+    <!-- Recall button if uploader and pending -->
+    <button *ngIf="(document.UploaderID || '').toLowerCase() === (currentUser.ID || currentUser.id || '').toLowerCase() && document.Status === 'Pending Approval'"
+            class="app-btn-primary bg-[var(--warning)] hover:bg-amber-600 border-0 flex items-center gap-1.5 cursor-pointer"
+            (click)="recallDocument()">
+      ↩️ Recall File
+    </button>
+  </div>
   
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
     <!-- Main Content: Document Metadata and Actions -->
@@ -10,6 +19,17 @@
             <div class="flex items-center gap-2.5 mb-2 flex-wrap">
               <span class="text-[10px] font-bold text-[var(--primary)] bg-indigo-50 border border-indigo-100/30 px-2.5 py-1 rounded">{{ document.UniqueNumber }}</span>
               <span class="text-[9px] font-bold text-[var(--text-secondary)] bg-slate-100 border border-slate-200 px-2.5 py-1 rounded uppercase">{{ document.Category }}</span>
+              
+              <!-- Priority & Direction Badges -->
+              <span class="text-[9px] font-bold px-2 py-1 rounded border uppercase" [ngClass]="{
+                'bg-slate-50 text-slate-700 border-slate-200': document.Priority === 'Normal',
+                'bg-rose-50 text-rose-700 border-rose-150': document.Priority === 'Urgent',
+                'bg-amber-50 text-amber-700 border-amber-150': document.Priority === 'Confidential'
+              }">{{ document.Priority || 'Normal' }}</span>
+
+              <span class="text-[9px] font-bold px-2 py-1 rounded border uppercase bg-blue-50 text-blue-700 border-blue-150">
+                Direction: {{ document.Direction || 'Inward' }}
+              </span>
             </div>
             <h2 class="text-2xl font-bold text-[var(--text-primary)] mt-1.5">{{ document.Title }}</h2>
             <p class="text-xs text-[var(--text-muted)] mt-1">File: {{ document.Filename }}</p>
@@ -17,7 +37,9 @@
           <span class="px-3.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border flex-shrink-0" [ngClass]="{
             'bg-amber-50 text-amber-700 border-amber-200': document.Status === 'Pending Approval' || document.Status === 'Draft' || document.Status === 'Sent Back',
             'bg-emerald-50 text-emerald-700 border-emerald-200': document.Status === 'Approved',
-            'bg-rose-50 text-rose-700 border-rose-200': document.Status === 'Rejected'
+            'bg-rose-50 text-rose-700 border-rose-200': document.Status === 'Rejected',
+            'bg-slate-100 text-slate-700 border-slate-300': document.Status === 'Closed',
+            'bg-blue-50 text-blue-700 border-blue-200': document.Status === 'Archived'
           }">{{ document.Status }}</span>
         </div>
 
@@ -27,8 +49,9 @@
         </div>
         
         <div class="flex flex-wrap gap-x-8 gap-y-2 mb-6 text-sm text-[var(--text-secondary)]">
-          <p>Submitted by: <strong class="text-[var(--text-primary)] font-semibold">{{ document.Uploader.Name }}</strong></p>
-          <p>Pending with: <strong class="text-[var(--text-primary)] font-semibold">{{ document.CurrentOwner.Name }}</strong></p>
+          <p>Submitted by: <strong class="text-[var(--text-primary)] font-semibold">{{ document.Uploader?.Name }}</strong></p>
+          <p>Pending with: <strong class="text-[var(--text-primary)] font-semibold">{{ document.CurrentOwner?.Name }}</strong></p>
+          <p>Assigned Date: <strong class="text-indigo-650 font-semibold">{{ document.AssignedAt | date:'short' }}</strong></p>
           <p *ngIf="document.Tags" class="flex gap-1.5 items-center">
             Tags: 
             <span *ngFor="let tag of document.Tags.split(',')" class="bg-slate-150/60 text-[var(--text-secondary)] text-xs px-2.5 py-0.5 rounded border border-slate-200">#{{ tag.trim() }}</span>
@@ -38,32 +61,55 @@
         <button class="app-btn-secondary w-full sm:w-auto font-semibold" (click)="download()">Download Document</button>
 
         <!-- Actions panel if current user is owner -->
-        <div *ngIf="document.CurrentOwnerID === currentUser.ID && document.Status !== 'Approved' && document.Status !== 'Rejected' && document.Status !== 'Sent Back'">
+        <div *ngIf="(document.CurrentOwnerID || '').toLowerCase() === (currentUser.ID || currentUser.id || '').toLowerCase() && document.Status !== 'Approved' && document.Status !== 'Rejected' && document.Status !== 'Sent Back' && document.Status !== 'Closed' && document.Status !== 'Archived'">
           <hr class="border-[var(--border)] my-6">
           <h3 class="text-lg font-bold text-[var(--text-primary)]">Action Required</h3>
           
           <div class="mt-4 mb-5">
-            <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Remarks</label>
+            <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Remarks / Noting Sheet</label>
             <textarea class="app-input" rows="3" [(ngModel)]="actionRemarks" placeholder="Add your comments here..."></textarea>
           </div>
 
-          <div class="mb-5">
-            <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Forward to (Teacher / Principal)</label>
-            <select class="app-input cursor-pointer" [(ngModel)]="selectedUser">
-              <option *ngFor="let user of users" [value]="user.id || user.ID" class="bg-white text-slate-800">{{ user.name || user.Name }}</option>
-            </select>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div>
+              <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Forward to (Teacher / Principal)</label>
+              <select class="app-input cursor-pointer" [(ngModel)]="selectedUser">
+                <option *ngFor="let user of users" [value]="user.id || user.ID">{{ user.name || user.Name }}</option>
+              </select>
+            </div>
+            
+            <!-- Referral section dropdown -->
+            <div>
+              <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Refer for Opinion (Detour)</label>
+              <div class="flex gap-2">
+                <select class="app-input cursor-pointer" [(ngModel)]="referralUser">
+                  <option value="" disabled class="text-slate-400">Select user...</option>
+                  <option *ngFor="let user of users" [value]="user.id || user.ID">{{ user.name || user.Name }}</option>
+                </select>
+                <button class="app-btn-secondary py-2 px-3 text-xs" (click)="submitReferral('Refer')">Refer</button>
+              </div>
+            </div>
           </div>
           
           <div class="flex flex-wrap gap-3">
             <button class="app-btn-primary bg-[var(--accent)] hover:bg-[var(--accent-hover)] border-0 flex-1 sm:flex-initial cursor-pointer" (click)="submitAction('Approved')">Approve</button>
             <button class="app-btn-primary flex-1 sm:flex-initial cursor-pointer" (click)="submitAction('Forwarded')">Forward</button>
             <button class="app-btn-primary bg-[var(--warning)] hover:bg-amber-600 border-0 flex-1 sm:flex-initial cursor-pointer" (click)="submitAction('Sent Back')">Send Back for Revision</button>
+            
+            <!-- Detour Return action button -->
+            <button *ngIf="document.ReferralOwnerID" class="app-btn-primary bg-slate-700 hover:bg-slate-800 border-0 flex-1 sm:flex-initial cursor-pointer" (click)="submitReferral('Return')">Return to Original Holder</button>
+            
+            <!-- Close / Archive authorities -->
+            <button *ngIf="currentUser.Role === 'Principal' || currentUser.Role === 'Teacher'" class="app-btn-primary bg-slate-600 hover:bg-slate-700 border-0 flex-1 sm:flex-initial cursor-pointer" (click)="submitAction('Close')">Close File</button>
+            <button *ngIf="currentUser.Role === 'Principal' || currentUser.Role === 'Teacher'" class="app-btn-primary bg-blue-600 hover:bg-blue-700 border-0 flex-1 sm:flex-initial cursor-pointer" (click)="submitAction('Archive')">Archive File</button>
+
             <button class="app-btn-primary bg-[var(--danger)] hover:bg-rose-600 border-0 flex-1 sm:flex-initial cursor-pointer" (click)="submitAction('Rejected')">Reject Final</button>
           </div>
         </div>
 
         <!-- Replace / Resubmit File Panel if Sent Back -->
-        <div *ngIf="document.Status === 'Sent Back' && document.UploaderID === currentUser.ID">
+        <div *ngIf="document.Status === 'Sent Back' && (document.UploaderID || '').toLowerCase() === (currentUser.ID || currentUser.id || '').toLowerCase()">
           <hr class="border-[var(--border)] my-6">
           <h3 class="text-lg font-bold text-[var(--text-primary)]">Resubmit or Replace File</h3>
           <p class="text-[var(--text-secondary)] text-sm mb-5">This document was sent back. You can upload a revised version (optional) and resubmit it with remarks.</p>
@@ -76,11 +122,7 @@
             <div>
               <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Category</label>
               <select class="app-input cursor-pointer" [(ngModel)]="document.Category">
-                <option value="Assignment" class="bg-white text-slate-800">Assignment</option>
-                <option value="Notice" class="bg-white text-slate-800">Notice</option>
-                <option value="Report" class="bg-white text-slate-800">Report</option>
-                <option value="Leave Application" class="bg-white text-slate-800">Leave Application</option>
-                <option value="Circular" class="bg-white text-slate-800">Circular</option>
+                <option *ngFor="let dt of documentTypes" [value]="dt.Name" class="bg-white text-slate-800">{{ dt.Name }}</option>
               </select>
             </div>
           </div>
@@ -93,6 +135,24 @@
             <div>
               <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Tags (Comma-separated)</label>
               <input type="text" class="app-input" [(ngModel)]="document.Tags" placeholder="e.g. class-10, term-2, urgent">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div>
+              <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Priority</label>
+              <select class="app-input cursor-pointer" [(ngModel)]="document.Priority">
+                <option value="Normal">Normal</option>
+                <option value="Urgent">Urgent</option>
+                <option value="Confidential">Confidential</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Correspondence Direction</label>
+              <select class="app-input cursor-pointer" [(ngModel)]="document.Direction">
+                <option value="Inward">Inward (Incoming / Received)</option>
+                <option value="Outward">Outward (Outgoing / Dispatched)</option>
+              </select>
             </div>
           </div>
 
@@ -132,6 +192,55 @@
         <h3 class="text-lg font-bold text-[var(--text-primary)] mb-4">Document Preview</h3>
         <div class="w-full h-[600px] rounded-xl overflow-y-auto bg-slate-50 border border-[var(--border)] p-4" id="docx-container">
           <!-- DOCX content will be rendered here dynamically -->
+        </div>
+      </div>
+
+      <!-- Append-only Noting Sheet -->
+      <div class="app-card">
+        <h3 class="text-lg font-bold text-[var(--text-primary)] mb-4">✍️ Noting Sheet (Append-Only Commentary)</h3>
+        <div class="bg-slate-50 border border-[var(--border)] rounded-[var(--radius-md)] p-4 mb-4 max-h-60 overflow-y-auto whitespace-pre-wrap text-sm text-[var(--text-secondary)] leading-relaxed font-mono">
+          <div *ngIf="!document.NotingSheet" class="text-[var(--text-muted)] italic">No notes appended yet. Add the first note below.</div>
+          <div *ngIf="document.NotingSheet">{{ document.NotingSheet }}</div>
+        </div>
+        
+        <div class="space-y-3">
+          <textarea class="app-input" rows="2" [(ngModel)]="newNote" placeholder="Write running commentary entry..."></textarea>
+          <div *ngIf="noteError" class="text-rose-600 text-xs">{{ noteError }}</div>
+          <button class="app-btn-primary py-2 px-4 text-xs cursor-pointer" (click)="submitNote()">Add Commentary Note</button>
+        </div>
+      </div>
+
+      <!-- Draft Workspace -->
+      <div class="app-card" *ngIf="document.Status !== 'Approved' && document.Status !== 'Rejected' && document.Status !== 'Closed'">
+        <h3 class="text-lg font-bold text-[var(--text-primary)] mb-2">📄 Prepared Orders / Letters Draft Space</h3>
+        <p class="text-xs text-[var(--text-secondary)] mb-4">Prepare orders or dispatch replies linked to this file. Save changes to update the draft space.</p>
+        <textarea class="app-input font-mono text-sm mb-3" rows="6" [(ngModel)]="draftContent" placeholder="Draft letters, orders or circular text here..."></textarea>
+        <div *ngIf="draftError" class="text-rose-600 text-xs mb-2">{{ draftError }}</div>
+        <button class="app-btn-primary py-2 px-4 text-xs cursor-pointer" (click)="saveDraft()">Save Draft Changes</button>
+      </div>
+
+      <!-- Attachments & Enclosures -->
+      <div class="app-card">
+        <h3 class="text-lg font-bold text-[var(--text-primary)] mb-4">📎 Secondary Enclosures & Attachments</h3>
+        <div class="space-y-2 mb-4">
+          <div *ngIf="!document.Attachments || document.Attachments.length === 0" class="text-xs text-[var(--text-muted)] italic">No secondary enclosures linked.</div>
+          <div *ngFor="let att of document.Attachments" class="flex justify-between items-center p-3 bg-slate-50 border border-[var(--border)] rounded-md">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">📂</span>
+              <span class="text-xs font-semibold text-[var(--text-primary)]">{{ att.Filename }}</span>
+            </div>
+            <a [href]="getDownloadAttachmentUrl(att)" target="_blank" class="text-indigo-650 hover:text-indigo-850 text-xs font-bold">Download</a>
+          </div>
+        </div>
+
+        <!-- Enclosures uploader -->
+        <div class="border-t border-[var(--border)] pt-4">
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Upload new Enclosure file</label>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input type="file" id="att-file-input" class="app-input py-1.5 text-xs flex-1" (change)="onAttachmentSelected($event)">
+            <button class="app-btn-primary py-2 px-4 text-xs cursor-pointer whitespace-nowrap" (click)="uploadAttachment()">Add Enclosure</button>
+          </div>
+          <div *ngIf="attachmentError" class="text-rose-600 text-xs mt-2">{{ attachmentError }}</div>
         </div>
       </div>
     </div>

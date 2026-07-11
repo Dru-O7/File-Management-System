@@ -21,6 +21,8 @@ export class UploadComponent implements OnInit {
   description: string = '';
   category: string = 'Assignment';
   tags: string = '';
+  priority: string = 'Normal';
+  direction: string = 'Inward';
   error: string = '';
 
   constructor(private api: ApiService, private auth: AuthService, private router: Router) {}
@@ -56,11 +58,6 @@ export class UploadComponent implements OnInit {
     });
   }
 
-  needsParentCosign(): boolean {
-    const selected = this.documentTypes.find(t => t.Name === this.category);
-    return selected ? selected.NeedsParentCosign : false;
-  }
-
   onFileSelected(event: any) {
     this.selectedFile = event.target.files[0];
     if (this.selectedFile && !this.title) {
@@ -90,6 +87,8 @@ export class UploadComponent implements OnInit {
     formData.append('description', this.description);
     formData.append('category', this.category);
     formData.append('tags', this.tags);
+    formData.append('priority', this.priority);
+    formData.append('direction', this.direction);
 
     this.api.uploadDocument(formData).subscribe({
       next: () => {

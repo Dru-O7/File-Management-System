@@ -19,6 +19,9 @@ export class DashboardComponent implements OnInit {
   searchText: string = '';
   documentTypes: any[] = [];
   selectedFolder: string = 'All';
+  activeTab: string = 'pending_me';
+  selectedPriority: string = 'All';
+  reportsData: any = null;
 
   constructor(private api: ApiService, private auth: AuthService, private router: Router) {}
 
@@ -30,6 +33,19 @@ export class DashboardComponent implements OnInit {
     }
     this.loadDocumentTypes();
     this.loadDocuments();
+    
+    if (this.currentUser.Role === 'Teacher' || this.currentUser.Role === 'Principal') {
+      this.loadReports();
+    }
+  }
+
+  loadReports() {
+    this.api.getReports().subscribe({
+      next: (res) => {
+        this.reportsData = res;
+      },
+      error: (err) => console.error('Failed to load reports:', err)
+    });
   }
 
   loadDocumentTypes() {
@@ -43,7 +59,7 @@ export class DashboardComponent implements OnInit {
   loadDocuments() {
     this.api.getDocuments(this.currentUser.ID, this.searchText).subscribe({
       next: (docs) => {
-        this.documents = docs;
+        this.documents = docs || [];
         this.applyFilter();
       }
     });
@@ -58,23 +74,85 @@ export class DashboardComponent implements OnInit {
     this.applyFilter();
   }
 
+  selectTab(tab: string) {
+    this.activeTab = tab;
+    this.applyFilter();
+  }
+
+  selectPriority(priority: string) {
+    this.selectedPriority = priority;
+    this.applyFilter();
+  }
+
   applyFilter() {
-    if (this.selectedFolder === 'All') {
-      this.filteredDocuments = this.documents;
-    } else {
-      this.filteredDocuments = this.documents.filter(doc => 
-        doc.Category?.toLowerCase() === this.selectedFolder.toLowerCase()
-      );
+    let list = this.documents;
+
+    // 1. Folder category filter
+    if (this.selectedFolder !== 'All') {
+      list = list.filter(doc => doc.Category?.toLowerCase() === this.selectedFolder.toLowerCase());
     }
+
+    // 2. Priority filter
+    if (this.selectedPriority !== 'All') {
+      list = list.filter(doc => doc.Priority?.toLowerCase() === this.selectedPriority.toLowerCase());
+    }
+
+    // 3. Tab filter
+    const now = new Date();
+    const currentUserIdLower = (this.currentUser.ID || this.currentUser.id || '').toLowerCase();
+    
+    if (this.activeTab === 'pending_me') {
+      list = list.filter(doc => (doc.CurrentOwnerID || '').toLowerCase() === currentUserIdLower && doc.Status !== 'Approved' && doc.Status !== 'Rejected' && doc.Status !== 'Closed' && doc.Status !== 'Archived');
+    } else if (this.activeTab === 'sent_out') {
+      list = list.filter(doc => (doc.UploaderID || '').toLowerCase() === currentUserIdLower && (doc.CurrentOwnerID || '').toLowerCase() !== currentUserIdLower && doc.Status !== 'Approved' && doc.Status !== 'Rejected' && doc.Status !== 'Closed' && doc.Status !== 'Archived');
+    } else if (this.activeTab === 'overdue') {
+      list = list.filter(doc => (doc.Status === 'Pending Approval' || doc.Status === 'Sent Back') && doc.SlaDeadline && new Date(doc.SlaDeadline) < now);
+    } else if (this.activeTab === 'archived_closed') {
+      list = list.filter(doc => doc.Status === 'Closed' || doc.Status === 'Archived');
+    }
+
+    this.filteredDocuments = list;
   }
 
   getFolderCount(folderName: string): number {
-    if (folderName === 'All') {
-      return this.documents.length;
+    let list = this.documents;
+    if (folderName !== 'All') {
+      list = list.filter(doc => doc.Category?.toLowerCase() === folderName.toLowerCase());
     }
-    return this.documents.filter(doc => 
-      doc.Category?.toLowerCase() === folderName.toLowerCase()
-    ).length;
+    return list.length;
+  }
+
+  getTabCount(tab: string): number {
+    let list = this.documents;
+    const now = new Date();
+    const currentUserIdLower = (this.currentUser.ID || this.currentUser.id || '').toLowerCase();
+
+    if (tab === 'pending_me') {
+      list = list.filter(doc => (doc.CurrentOwnerID || '').toLowerCase() === currentUserIdLower && doc.Status !== 'Approved' && doc.Status !== 'Rejected' && doc.Status !== 'Closed' && doc.Status !== 'Archived');
+    } else if (tab === 'sent_out') {
+      list = list.filter(doc => (doc.UploaderID || '').toLowerCase() === currentUserIdLower && (doc.CurrentOwnerID || '').toLowerCase() !== currentUserIdLower && doc.Status !== 'Approved' && doc.Status !== 'Rejected' && doc.Status !== 'Closed' && doc.Status !== 'Archived');
+    } else if (tab === 'overdue') {
+      list = list.filter(doc => (doc.Status === 'Pending Approval' || doc.Status === 'Sent Back') && doc.SlaDeadline && new Date(doc.SlaDeadline) < now);
+    } else if (tab === 'archived_closed') {
+      list = list.filter(doc => doc.Status === 'Closed' || doc.Status === 'Archived');
+    }
+    return list.length;
+  }
+
+  getHoldingDuration(assignedAtStr: string): string {
+    if (!assignedAtStr) return 'Unknown';
+    const assignedAt = new Date(assignedAtStr);
+    const diff = new Date().getTime() - assignedAt.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    if (hours < 1) {
+      const minutes = Math.floor(diff / (1000 * 60));
+      return `${minutes}m ago`;
+    }
+    if (hours > 24) {
+      const days = Math.floor(hours / 24);
+      return `${days}d ago`;
+    }
+    return `${hours}h ago`;
   }
 
   goToUpload() {

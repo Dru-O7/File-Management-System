@@ -28,6 +28,7 @@ func Init(databaseURL string) *gorm.DB {
 		&models.DocumentPendingApprover{},
 		&models.WorkflowHistory{},
 		&models.Notification{},
+		&models.Attachment{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)

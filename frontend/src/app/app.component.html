@@ -6,6 +6,30 @@
     <span class="tracking-tight">SchoolSync</span>
   </h2>
   <div *ngIf="authService.currentUser$ | async as user" class="flex items-center gap-4">
+    <!-- Notifications Bell -->
+    <div class="relative">
+      <button class="relative p-2 text-slate-500 hover:text-slate-800 rounded-full cursor-pointer focus:outline-none" (click)="toggleNotifications()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+        </svg>
+        <span *ngIf="unreadCount > 0" class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full"></span>
+      </button>
+      
+      <!-- Notifications Dropdown -->
+      <div *ngIf="showNotificationsDropdown" class="absolute right-0 mt-2 w-80 bg-white border border-[var(--border)] rounded-[var(--radius-md)] shadow-lg py-2 z-50">
+        <h4 class="px-4 py-2 border-b border-[var(--border)] text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">Notifications</h4>
+        <div class="max-h-60 overflow-y-auto">
+          <div *ngIf="notifications.length === 0" class="px-4 py-4 text-xs text-[var(--text-muted)] text-center">
+            No notifications yet
+          </div>
+          <div *ngFor="let n of notifications" class="px-4 py-3 hover:bg-slate-50 text-xs border-b border-slate-100 last:border-0 text-[var(--text-primary)]">
+            <div class="font-medium mb-0.5">{{ getNotificationText(n) }}</div>
+            <div class="text-[9px] text-[var(--text-muted)]">{{ n.CreatedAt | date:'short' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="flex items-center gap-2.5">
       <span class="text-[var(--text-secondary)] text-sm">Welcome, <strong class="text-[var(--text-primary)] font-semibold">{{ user.Name || user.name }}</strong></span>
       <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider" [ngClass]="{

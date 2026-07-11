@@ -16,6 +16,14 @@ type ActionRequest struct {
 	Signature string     `json:"signature"`
 }
 
+type AttachmentResponse struct {
+	ID         uuid.UUID `json:"ID"`
+	DocumentID uuid.UUID `json:"DocumentID"`
+	Filename   string    `json:"Filename"`
+	UploadedBy uuid.UUID `json:"UploadedBy"`
+	CreatedAt  time.Time `json:"CreatedAt"`
+}
+
 type DocumentResponse struct {
 	ID             uuid.UUID             `json:"ID"`
 	Filename       string                `json:"Filename"`
@@ -28,11 +36,18 @@ type DocumentResponse struct {
 	UniqueNumber   string                `json:"UniqueNumber"`
 	Tags           string                `json:"Tags"`
 	Category       string                `json:"Category"`
+	Priority       string                `json:"Priority"`
+	Direction      string                `json:"Direction"`
+	AssignedAt     time.Time             `json:"AssignedAt"`
+	ReferralOwnerID *uuid.UUID            `json:"ReferralOwnerID"`
+	NotingSheet    string                `json:"NotingSheet"`
+	DraftSpace     string                `json:"DraftSpace"`
 	CreatedAt      time.Time             `json:"CreatedAt"`
 	UpdatedAt      time.Time             `json:"UpdatedAt"`
 
-	Uploader     models.User `json:"Uploader"`
-	CurrentOwner models.User `json:"CurrentOwner"`
+	Uploader     models.User          `json:"Uploader"`
+	CurrentOwner models.User          `json:"CurrentOwner"`
+	Attachments  []AttachmentResponse `json:"Attachments"`
 }
 
 type HistoryResponse struct {
