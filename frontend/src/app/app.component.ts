@@ -3,24 +3,29 @@ import { RouterOutlet, Router } from '@angular/router';
 import { AuthService } from './services/auth.service';
 import { ApiService } from './services/api.service';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, CommonModule],
+  imports: [RouterOutlet, CommonModule, FormsModule],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
 export class AppComponent implements OnInit, OnDestroy {
   notifications: any[] = [];
   showNotificationsDropdown: boolean = false;
+  showProfileDropdown: boolean = false;
+  showMobileMenu: boolean = false;
   unreadCount: number = 0;
+  searchQuery: string = '';
+  activeTab: string = 'pending_me';
   private intervalId: any;
 
   constructor(
     public authService: AuthService,
     private api: ApiService,
-    private router: Router
+    public router: Router
   ) {}
 
   ngOnInit() {
@@ -30,6 +35,14 @@ export class AppComponent implements OnInit, OnDestroy {
       } else {
         this.stopNotificationsPolling();
       }
+    });
+
+    this.api.activeTabSubject.subscribe(tab => {
+      this.activeTab = tab;
+    });
+
+    this.api.searchSubject.subscribe(q => {
+      this.searchQuery = q;
     });
   }
 
@@ -89,6 +102,31 @@ export class AppComponent implements OnInit, OnDestroy {
     } catch (e) {
       return `New document update event received.`;
     }
+  }
+
+  onSearchInput(event: any) {
+    const val = event.target.value;
+    this.searchQuery = val;
+    this.api.searchSubject.next(val);
+    if (this.router.url !== '/dashboard') {
+      this.router.navigate(['/dashboard']);
+    }
+  }
+
+  selectTab(tab: string) {
+    this.api.activeTabSubject.next(tab);
+    if (this.router.url !== '/dashboard') {
+      this.router.navigate(['/dashboard']);
+    }
+    this.showMobileMenu = false;
+  }
+
+  toggleProfileDropdown() {
+    this.showProfileDropdown = !this.showProfileDropdown;
+  }
+
+  toggleMobileMenu() {
+    this.showMobileMenu = !this.showMobileMenu;
   }
 
   logout() {

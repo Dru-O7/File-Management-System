@@ -1,46 +1,226 @@
-<nav class="px-8 py-4 border-b border-[var(--border)] flex justify-between items-center bg-white/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
-  <h2 class="m-0 text-[var(--secondary)] text-xl font-bold flex items-center gap-2">
-    <div class="w-7 h-7 bg-[var(--primary)] rounded-lg shadow-md shadow-indigo-500/20 flex items-center justify-center">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4"><path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.948 49.948 0 0 0-9.902 3.912l-.003.002c-.114.06-.227.119-.34.18a.75.75 0 0 1-.707 0A50.88 50.88 0 0 0 7.5 12.173v-.224c0-.131.067-.248.172-.311a54.615 54.615 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.123 56.123 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" /><path d="M13.06 15.473a48.45 48.45 0 0 1 7.666-3.282c.134 1.414.22 2.843.255 4.284a.75.75 0 0 1-.46.71 47.87 47.87 0 0 1-8.105 2.571.75.75 0 0 1-.832-.536 48.448 48.448 0 0 1 1.476-4.147Z" /><path d="M11.605 15.71a48.45 48.45 0 0 0-7.666-3.282c-.134 1.414-.22 2.843-.255 4.284a.75.75 0 0 0 .46.71 47.87 47.87 0 0 0 8.105 2.571.75.75 0 0 0 .832-.536 48.448 48.448 0 0 0-1.476-4.147Z" /></svg>
-    </div>
-    <span class="tracking-tight">SchoolSync</span>
-  </h2>
-  <div *ngIf="authService.currentUser$ | async as user" class="flex items-center gap-4">
-    <!-- Notifications Bell -->
-    <div class="relative">
-      <button class="relative p-2 text-slate-500 hover:text-slate-800 rounded-full cursor-pointer focus:outline-none" (click)="toggleNotifications()">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
-        </svg>
-        <span *ngIf="unreadCount > 0" class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full"></span>
-      </button>
+<nav class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[var(--border)] shadow-sm">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between h-16">
       
-      <!-- Notifications Dropdown -->
-      <div *ngIf="showNotificationsDropdown" class="absolute right-0 mt-2 w-80 bg-white border border-[var(--border)] rounded-[var(--radius-md)] shadow-lg py-2 z-50">
-        <h4 class="px-4 py-2 border-b border-[var(--border)] text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">Notifications</h4>
-        <div class="max-h-60 overflow-y-auto">
-          <div *ngIf="notifications.length === 0" class="px-4 py-4 text-xs text-[var(--text-muted)] text-center">
-            No notifications yet
+      <!-- Left side: Brand Logo & Desktop Menu Links -->
+      <div class="flex items-center gap-8 flex-1 md:flex-initial">
+        <!-- Logo -->
+        <div class="flex-shrink-0 flex items-center gap-2 cursor-pointer" (click)="selectTab('pending_me')">
+          <div class="w-8 h-8 bg-[var(--primary)] rounded-lg flex items-center justify-center shadow-md shadow-indigo-500/25">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4.5 h-4.5">
+              <path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.948 49.948 0 0 0-9.902 3.912l-.003.002c-.114.06-.227.119-.34.18a.75.75 0 0 1-.707 0A50.88 50.88 0 0 0 7.5 12.173v-.224c0-.131.067-.248.172-.311a54.615 54.615 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.123 56.123 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" />
+              <path d="M13.06 15.473a48.45 48.45 0 0 1 7.666-3.282c.134 1.414.22 2.843.255 4.284a.75.75 0 0 1-.46.71 47.87 47.87 0 0 1-8.105 2.571.75.75 0 0 1-.832-.536 48.448 48.448 0 0 1 1.476-4.147Z" />
+              <path d="M11.605 15.71a48.45 48.45 0 0 0-7.666-3.282c-.134 1.414-.22 2.843-.255 4.284a.75.75 0 0 0 .46.71 47.87 47.87 0 0 0 8.105 2.571.75.75 0 0 0 .832-.536 48.448 48.448 0 0 0-1.476-4.147Z" />
+            </svg>
           </div>
-          <div *ngFor="let n of notifications" class="px-4 py-3 hover:bg-slate-50 text-xs border-b border-slate-100 last:border-0 text-[var(--text-primary)]">
-            <div class="font-medium mb-0.5">{{ getNotificationText(n) }}</div>
-            <div class="text-[9px] text-[var(--text-muted)]">{{ n.CreatedAt | date:'short' }}</div>
-          </div>
+          <span class="text-base font-bold text-[var(--text-primary)] tracking-tight">SchoolSync</span>
+        </div>
+
+        <!-- Desktop Quick Links (Role-Aware) -->
+        <div *ngIf="authService.currentUser$ | async as user" class="hidden md:flex items-center gap-1.5">
+          <!-- Student tabs -->
+          <ng-container *ngIf="(user.Role || user.role) === 'Student'">
+            <button class="px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer border-0"
+                    [class.bg-slate-100]="activeTab === 'pending_me'"
+                    [class.text-[var(--primary)]]="activeTab === 'pending_me'"
+                    [class.text-[var(--text-secondary)]]="activeTab !== 'pending_me'"
+                    [class.hover:text-[var(--text-primary)]]="activeTab !== 'pending_me'"
+                    (click)="selectTab('pending_me')">Inbox</button>
+            <button class="px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer border-0"
+                    [class.bg-slate-100]="activeTab === 'sent_out'"
+                    [class.text-[var(--primary)]]="activeTab === 'sent_out'"
+                    [class.text-[var(--text-secondary)]]="activeTab !== 'sent_out'"
+                    [class.hover:text-[var(--text-primary)]]="activeTab !== 'sent_out'"
+                    (click)="selectTab('sent_out')">Sent Out</button>
+            <button class="px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer border-0"
+                    [class.bg-slate-100]="activeTab === 'archived_closed'"
+                    [class.text-[var(--primary)]]="activeTab === 'archived_closed'"
+                    [class.text-[var(--text-secondary)]]="activeTab !== 'archived_closed'"
+                    [class.hover:text-[var(--text-primary)]]="activeTab !== 'archived_closed'"
+                    (click)="selectTab('archived_closed')">History</button>
+          </ng-container>
+
+          <!-- Teacher / Principal tabs -->
+          <ng-container *ngIf="(user.Role || user.role) === 'Teacher' || (user.Role || user.role) === 'Principal'">
+            <button class="px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer border-0"
+                    [class.bg-slate-100]="activeTab === 'pending_me'"
+                    [class.text-[var(--primary)]]="activeTab === 'pending_me'"
+                    [class.text-[var(--text-secondary)]]="activeTab !== 'pending_me'"
+                    [class.hover:text-[var(--text-primary)]]="activeTab !== 'pending_me'"
+                    (click)="selectTab('pending_me')">Inbox</button>
+            <button class="px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer border-0"
+                    [class.bg-slate-100]="activeTab === 'sent_out'"
+                    [class.text-[var(--primary)]]="activeTab === 'sent_out'"
+                    [class.text-[var(--text-secondary)]]="activeTab !== 'sent_out'"
+                    [class.hover:text-[var(--text-primary)]]="activeTab !== 'sent_out'"
+                    (click)="selectTab('sent_out')">Sent Out</button>
+            <button class="px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer border-0"
+                    [class.bg-slate-100]="activeTab === 'overdue'"
+                    [class.text-[var(--primary)]]="activeTab === 'overdue'"
+                    [class.text-[var(--text-secondary)]]="activeTab !== 'overdue'"
+                    [class.hover:text-[var(--text-primary)]]="activeTab !== 'overdue'"
+                    (click)="selectTab('overdue')">Overdue</button>
+            <button class="px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer border-0"
+                    [class.bg-slate-100]="activeTab === 'archived_closed'"
+                    [class.text-[var(--primary)]]="activeTab === 'archived_closed'"
+                    [class.text-[var(--text-secondary)]]="activeTab !== 'archived_closed'"
+                    [class.hover:text-[var(--text-primary)]]="activeTab !== 'archived_closed'"
+                    (click)="selectTab('archived_closed')">History</button>
+          </ng-container>
         </div>
       </div>
+
+      <!-- Center: Global Search Bar -->
+      <div *ngIf="authService.currentUser$ | async" class="flex-1 max-w-xs md:max-w-md mx-4 hidden sm:flex items-center">
+        <div class="relative w-full">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg class="h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input type="text" 
+                 class="block w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-[var(--border)] rounded-lg focus:outline-none focus:bg-white focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-[var(--text-primary)] placeholder-slate-400" 
+                 placeholder="Search file, title, tags..."
+                 [ngModel]="searchQuery"
+                 (input)="onSearchInput($event)">
+        </div>
+      </div>
+
+      <!-- Right side: Notifications Bell, Profile Dropdown & Mobile Menu button -->
+      <div *ngIf="authService.currentUser$ | async as user" class="flex items-center gap-3">
+        
+        <!-- Notifications Menu -->
+        <div class="relative">
+          <button class="p-2 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer transition-all hover:bg-slate-50 border-0 bg-transparent relative flex items-center" (click)="toggleNotifications(); showProfileDropdown = false">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+            </svg>
+            <span *ngIf="unreadCount > 0" class="absolute top-1.5 right-1.5 flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+            </span>
+          </button>
+
+          <!-- Notifications Dropdown Panel -->
+          <div *ngIf="showNotificationsDropdown" class="absolute right-0 mt-2 w-80 bg-white border border-[var(--border)] rounded-[var(--radius-lg)] shadow-lg py-2 z-50">
+            <h4 class="px-4 py-2 border-b border-[var(--border)] text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider m-0">Notifications</h4>
+            <div class="max-h-60 overflow-y-auto">
+              <div *ngIf="notifications.length === 0" class="px-4 py-6 text-xs text-[var(--text-muted)] text-center">
+                No notifications yet
+              </div>
+              <div *ngFor="let n of notifications" class="px-4 py-3 hover:bg-slate-50 text-xs border-b border-slate-100 last:border-0 text-[var(--text-primary)]">
+                <div class="font-medium mb-0.5">{{ getNotificationText(n) }}</div>
+                <div class="text-[9px] text-[var(--text-muted)]">{{ n.CreatedAt | date:'short' }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Profile Dropdown -->
+        <div class="relative">
+          <button class="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded-lg cursor-pointer transition-all border border-transparent hover:border-[var(--border)] text-left bg-transparent" 
+                  (click)="toggleProfileDropdown(); showNotificationsDropdown = false">
+            <div class="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center font-bold text-xs text-indigo-700 uppercase">
+              {{ (user.Name || user.name || 'U').substring(0,2) }}
+            </div>
+            <div class="hidden sm:block leading-tight">
+              <div class="text-xs font-bold text-[var(--text-primary)]">{{ user.Name || user.name }}</div>
+              <div class="text-[10px] text-[var(--text-secondary)] capitalize font-medium">{{ user.Role || user.role }}</div>
+            </div>
+            <svg class="h-3 w-3 text-slate-400 hidden sm:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
+
+          <!-- User Menu Dropdown Panel -->
+          <div *ngIf="showProfileDropdown" class="absolute right-0 mt-2 w-56 bg-white border border-[var(--border)] rounded-[var(--radius-lg)] shadow-lg py-2.5 z-50">
+            <div class="px-4 py-2 border-b border-[var(--border)] mb-1">
+              <div class="text-xs font-bold text-[var(--text-primary)]">{{ user.Name || user.name }}</div>
+              <div class="text-[10px] text-[var(--text-secondary)] truncate">{{ user.Email || user.email }}</div>
+              <div class="text-[9px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded px-1.5 py-0.5 inline-block mt-1.5 uppercase tracking-wider">
+                🏢 Greenwood High
+              </div>
+            </div>
+            <button class="w-full text-left px-4 py-2 text-xs text-[var(--text-secondary)] hover:bg-slate-50 hover:text-[var(--text-primary)] cursor-pointer border-0 bg-transparent" (click)="router.navigate(['/dashboard']); showProfileDropdown = false">Dashboard Home</button>
+            <button class="w-full text-left px-4 py-2 text-xs text-[var(--text-secondary)] hover:bg-slate-50 hover:text-[var(--text-primary)] cursor-pointer border-0 bg-transparent" (click)="router.navigate(['/upload']); showProfileDropdown = false">Submit Document</button>
+            <hr class="border-[var(--border)] my-1.5">
+            <button class="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 cursor-pointer font-semibold border-0 bg-transparent" (click)="logout(); showProfileDropdown = false">Logout</button>
+          </div>
+        </div>
+
+        <!-- Mobile Menu Hamburger button -->
+        <button class="md:hidden p-2 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer hover:bg-slate-50 border-0 bg-transparent flex items-center" (click)="toggleMobileMenu()">
+          <svg class="h-5.5 w-5.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path *ngIf="!showMobileMenu" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            <path *ngIf="showMobileMenu" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Collapsible Menu Grid -->
+  <div *ngIf="showMobileMenu && (authService.currentUser$ | async) as user" class="md:hidden border-t border-[var(--border)] bg-white px-4 py-3 space-y-2 shadow-inner">
+    <!-- Mobile Search input -->
+    <div class="relative w-full mb-3">
+      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <svg class="h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </div>
+      <input type="text" 
+             class="block w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-[var(--border)] rounded-lg focus:outline-none focus:bg-white text-[var(--text-primary)]" 
+             placeholder="Search file, title, tags..."
+             [ngModel]="searchQuery"
+             (input)="onSearchInput($event)">
     </div>
 
-    <div class="flex items-center gap-2.5">
-      <span class="text-[var(--text-secondary)] text-sm">Welcome, <strong class="text-[var(--text-primary)] font-semibold">{{ user.Name || user.name }}</strong></span>
-      <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider" [ngClass]="{
-        'bg-indigo-50 text-indigo-700 border border-indigo-100': (user.Role || user.role) === 'Student',
-        'bg-emerald-50 text-emerald-700 border border-emerald-100': (user.Role || user.role) === 'Teacher',
-        'bg-amber-50 text-amber-700 border border-amber-100': (user.Role || user.role) === 'Principal'
-      }">{{ user.Role || user.role }}</span>
-    </div>
-    <button class="app-btn-secondary py-1.5 px-3.5 text-xs cursor-pointer" (click)="logout()">Logout</button>
+    <!-- Mobile links (Student) -->
+    <ng-container *ngIf="(user.Role || user.role) === 'Student'">
+      <button class="w-full text-left px-3 py-2 text-xs font-semibold rounded-md cursor-pointer block border-0 bg-transparent"
+              [class.bg-indigo-50]="activeTab === 'pending_me'"
+              [class.text-[var(--primary)]]="activeTab === 'pending_me'"
+              [class.text-[var(--text-secondary)]]="activeTab !== 'pending_me'"
+              (click)="selectTab('pending_me')">Inbox</button>
+      <button class="w-full text-left px-3 py-2 text-xs font-semibold rounded-md cursor-pointer block border-0 bg-transparent"
+              [class.bg-indigo-50]="activeTab === 'sent_out'"
+              [class.text-[var(--primary)]]="activeTab === 'sent_out'"
+              [class.text-[var(--text-secondary)]]="activeTab !== 'sent_out'"
+              (click)="selectTab('sent_out')">Sent Out</button>
+      <button class="w-full text-left px-3 py-2 text-xs font-semibold rounded-md cursor-pointer block border-0 bg-transparent"
+              [class.bg-indigo-50]="activeTab === 'archived_closed'"
+              [class.text-[var(--primary)]]="activeTab === 'archived_closed'"
+              [class.text-[var(--text-secondary)]]="activeTab !== 'archived_closed'"
+              (click)="selectTab('archived_closed')">History</button>
+    </ng-container>
+
+    <!-- Mobile links (Teacher / Principal) -->
+    <ng-container *ngIf="(user.Role || user.role) === 'Teacher' || (user.Role || user.role) === 'Principal'">
+      <button class="w-full text-left px-3 py-2 text-xs font-semibold rounded-md cursor-pointer block border-0 bg-transparent"
+              [class.bg-indigo-50]="activeTab === 'pending_me'"
+              [class.text-[var(--primary)]]="activeTab === 'pending_me'"
+              [class.text-[var(--text-secondary)]]="activeTab !== 'pending_me'"
+              (click)="selectTab('pending_me')">Inbox</button>
+      <button class="w-full text-left px-3 py-2 text-xs font-semibold rounded-md cursor-pointer block border-0 bg-transparent"
+              [class.bg-indigo-50]="activeTab === 'sent_out'"
+              [class.text-[var(--primary)]]="activeTab === 'sent_out'"
+              [class.text-[var(--text-secondary)]]="activeTab !== 'sent_out'"
+              (click)="selectTab('sent_out')">Sent Out</button>
+      <button class="w-full text-left px-3 py-2 text-xs font-semibold rounded-md cursor-pointer block border-0 bg-transparent"
+              [class.bg-indigo-50]="activeTab === 'overdue'"
+              [class.text-[var(--primary)]]="activeTab === 'overdue'"
+              [class.text-[var(--text-secondary)]]="activeTab !== 'overdue'"
+              (click)="selectTab('overdue')">Overdue</button>
+      <button class="w-full text-left px-3 py-2 text-xs font-semibold rounded-md cursor-pointer block border-0 bg-transparent"
+              [class.bg-indigo-50]="activeTab === 'archived_closed'"
+              [class.text-[var(--primary)]]="activeTab === 'archived_closed'"
+              [class.text-[var(--text-secondary)]]="activeTab !== 'archived_closed'"
+              (click)="selectTab('archived_closed')">History</button>
+    </ng-container>
   </div>
 </nav>
+
 <div class="p-8 max-w-7xl mx-auto">
   <router-outlet></router-outlet>
 </div>

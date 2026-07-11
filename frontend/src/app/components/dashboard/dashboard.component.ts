@@ -32,7 +32,16 @@ export class DashboardComponent implements OnInit {
       return;
     }
     this.loadDocumentTypes();
-    this.loadDocuments();
+
+    this.api.searchSubject.subscribe(val => {
+      this.searchText = val;
+      this.loadDocuments();
+    });
+
+    this.api.activeTabSubject.subscribe(tab => {
+      this.activeTab = tab;
+      this.applyFilter();
+    });
     
     if (this.currentUser.Role === 'Teacher' || this.currentUser.Role === 'Principal') {
       this.loadReports();
@@ -75,8 +84,7 @@ export class DashboardComponent implements OnInit {
   }
 
   selectTab(tab: string) {
-    this.activeTab = tab;
-    this.applyFilter();
+    this.api.activeTabSubject.next(tab);
   }
 
   selectPriority(priority: string) {
