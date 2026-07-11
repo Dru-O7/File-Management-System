@@ -8,8 +8,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"io"
 	"log"
+	"math"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -22,6 +26,9 @@ import (
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/math/fixed"
 )
 
 type Service interface {
@@ -417,7 +424,7 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 		if doc.DocumentTypeID != nil {
 			dt, errDT := s.repo.GetDocumentTypeByID(*doc.DocumentTypeID)
 			if errDT == nil {
-				if req.TargetID != nil {
+				if req.TargetID != nil && *req.TargetID != authenticatedUserID {
 					newStatus = models.StatusPendingApproval
 					nextOwnerID = *req.TargetID
 					doc.CurrentStage = doc.CurrentStage + 1
@@ -534,7 +541,7 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 		existingSigs, _ := s.repo.CountSignatures(doc.ID)
 		filePathLower := strings.ToLower(doc.FilePath)
 		if strings.HasSuffix(filePathLower, ".pdf") {
-			if err := stampTextSignatureOnPDF(doc.FilePath, actorUser.Name, token, existingSigs); err != nil {
+			if err := stampTextSignatureOnPDF(doc.FilePath, actorUser.Name, token, req.Remarks, existingSigs); err != nil {
 				log.Printf("Error overlaying text signature on PDF: %v", err)
 			}
 		}
@@ -1058,19 +1065,22 @@ func (s *service) GetReports(schoolID uuid.UUID) (interface{}, error) {
 	}, nil
 }
 
-func stampTextSignatureOnPDF(pdfPath string, actorName string, token string, existingSigCount int) error {
+func stampTextSignatureOnPDF(pdfPath string, actorName string, token string, remarks string, existingSigCount int) error {
 	if !strings.HasSuffix(strings.ToLower(pdfPath), ".pdf") {
 		return nil
 	}
 
-	dateStr := time.Now().Format("02-Jan-06 15:04")
-	text := fmt.Sprintf("VERIFIED BY: %s | KEY: %s | %s", strings.ToUpper(actorName), token, dateStr)
+	tempPNG, err := generateTransparentSignaturePNG(actorName, token, remarks)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tempPNG)
 
 	tempOutPDF := pdfPath + ".signed"
-	offsetY := 20 + (existingSigCount * 12)
-	desc := fmt.Sprintf("font:Helvetica, points:7, col:0.1 0.3 0.6, pos:br, off:-20 %d", offsetY)
+	offsetY := 20 + (existingSigCount * 65)
+	desc := fmt.Sprintf("scale:0.5 abs, pos:br, off:-20 %d, rot:0", offsetY)
 
-	wm, err := pdfcpu.ParseTextWatermarkDetails(text, desc, true, types.POINTS)
+	wm, err := pdfcpu.ParseImageWatermarkDetails(tempPNG, desc, true, types.POINTS)
 	if err != nil {
 		return err
 	}
@@ -1087,6 +1097,88 @@ func stampTextSignatureOnPDF(pdfPath string, actorName string, token string, exi
 	}
 
 	return nil
+}
+
+func generateTransparentSignaturePNG(actorName, token, remarks string) (string, error) {
+	img := image.NewRGBA(image.Rect(0, 0, 380, 110))
+
+	green := color.RGBA{34, 197, 94, 255}
+	drawLine(img, 15, 60, 25, 75, green, 3)
+	drawLine(img, 25, 75, 42, 45, green, 3)
+
+	textColor := color.RGBA{15, 23, 42, 255}
+	d := &font.Drawer{
+		Dst:  img,
+		Src:  image.NewUniform(textColor),
+		Face: basicfont.Face7x13,
+	}
+
+	d.Dot = fixed.P(55, 25)
+	d.DrawString("Signature Valid")
+	d.Dot = fixed.P(56, 25)
+	d.DrawString("Signature Valid")
+
+	dateStr := time.Now().Format("2006.01.02 15:04:05 MST")
+	cleanRemarks := remarks
+	if len(cleanRemarks) > 40 {
+		cleanRemarks = cleanRemarks[:37] + "..."
+	}
+	if cleanRemarks == "" {
+		cleanRemarks = "Approved"
+	}
+
+	d.Dot = fixed.P(55, 45)
+	d.DrawString("Digitally signed by " + actorName)
+
+	d.Dot = fixed.P(55, 63)
+	d.DrawString("Date: " + dateStr)
+
+	d.Dot = fixed.P(55, 81)
+	d.DrawString("Reason: " + cleanRemarks)
+
+	d.Dot = fixed.P(55, 99)
+	d.DrawString("Token: " + token)
+
+	tempDir := os.TempDir()
+	tempPNGPath := filepath.Join(tempDir, fmt.Sprintf("sig_image_%d.png", time.Now().UnixNano()))
+	f, err := os.Create(tempPNGPath)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	err = png.Encode(f, img)
+	if err != nil {
+		os.Remove(tempPNGPath)
+		return "", err
+	}
+
+	return tempPNGPath, nil
+}
+
+func drawLine(img *image.RGBA, x1, y1, x2, y2 int, col color.Color, thickness int) {
+	dx := float64(x2 - x1)
+	dy := float64(y2 - y1)
+	steps := math.Abs(dx)
+	if math.Abs(dy) > steps {
+		steps = math.Abs(dy)
+	}
+	if steps == 0 {
+		return
+	}
+	xInc := dx / steps
+	yInc := dy / steps
+	x := float64(x1)
+	y := float64(y1)
+	for i := 0; i <= int(steps); i++ {
+		for tx := -thickness/2; tx <= thickness/2; tx++ {
+			for ty := -thickness/2; ty <= thickness/2; ty++ {
+				img.Set(int(x)+tx, int(y)+ty, col)
+			}
+		}
+		x += xInc
+		y += yInc
+	}
 }
 
 func stampSignatureOnDocx(docxPath string, base64Signature string, existingSigCount int) error {
