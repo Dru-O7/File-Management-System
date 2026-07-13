@@ -23,7 +23,7 @@ type User struct {
 	Name         string     `gorm:"size:255;not null"`
 	Email        string     `gorm:"size:255;not null;unique"`
 	PasswordHash string     `gorm:"not null"`
-	Role         string     `gorm:"size:50;not null;default:'Student'"` // School roles: Student, Teacher, Principal, Parent
+	Role         string     `gorm:"size:50;not null;default:'Student'"` // School roles: Student, Teacher, Principal, Parent, Admin
 	ClassSection string     `gorm:"size:50"`                            // Scoped access for Student/Teacher (e.g. "10-A")
 	Subject      string     `gorm:"size:100"`                           // Assigned subject for Teacher
 	Phone        string     `gorm:"size:20"`                            // For notifications

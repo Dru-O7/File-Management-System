@@ -1,13 +1,6 @@
 <div class="mt-4 max-w-7xl mx-auto px-4" *ngIf="document">
   <div class="flex justify-between items-center mb-6">
     <button class="app-btn-secondary cursor-pointer" (click)="router.navigate(['/dashboard'])">&larr; Back to Dashboard</button>
-    
-    <!-- Recall button if uploader and pending -->
-    <button *ngIf="(document.UploaderID || '').toLowerCase() === (currentUser.ID || currentUser.id || '').toLowerCase() && document.Status === 'Pending Approval'"
-            class="app-btn-primary bg-[var(--warning)] hover:bg-amber-600 border-0 flex items-center gap-1.5 cursor-pointer"
-            (click)="recallDocument()">
-      ↩️ Recall File
-    </button>
   </div>
   
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -20,16 +13,12 @@
               <span class="text-[10px] font-bold text-[var(--primary)] bg-indigo-50 border border-indigo-100/30 px-2.5 py-1 rounded">{{ document.UniqueNumber }}</span>
               <span class="text-[9px] font-bold text-[var(--text-secondary)] bg-slate-100 border border-slate-200 px-2.5 py-1 rounded uppercase">{{ document.Category }}</span>
               
-              <!-- Priority & Direction Badges -->
+              <!-- Priority Badges -->
               <span class="text-[9px] font-bold px-2 py-1 rounded border uppercase" [ngClass]="{
                 'bg-slate-50 text-slate-700 border-slate-200': document.Priority === 'Normal',
                 'bg-rose-50 text-rose-700 border-rose-150': document.Priority === 'Urgent',
                 'bg-amber-50 text-amber-700 border-amber-150': document.Priority === 'Confidential'
               }">{{ document.Priority || 'Normal' }}</span>
-
-              <span class="text-[9px] font-bold px-2 py-1 rounded border uppercase bg-blue-50 text-blue-700 border-blue-150">
-                Direction: {{ document.Direction || 'Inward' }}
-              </span>
             </div>
             <h2 class="text-2xl font-bold text-[var(--text-primary)] mt-1.5">{{ document.Title }}</h2>
             <p class="text-xs text-[var(--text-muted)] mt-1">File: {{ document.Filename }}</p>
@@ -124,22 +113,13 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-            <div>
-              <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Priority</label>
-              <select class="app-input cursor-pointer" [(ngModel)]="document.Priority">
-                <option value="Normal">Normal</option>
-                <option value="Urgent">Urgent</option>
-                <option value="Confidential">Confidential</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Correspondence Direction</label>
-              <select class="app-input cursor-pointer" [(ngModel)]="document.Direction">
-                <option value="Inward">Inward (Incoming / Received)</option>
-                <option value="Outward">Outward (Outgoing / Dispatched)</option>
-              </select>
-            </div>
+          <div class="mb-5">
+            <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Priority</label>
+            <select class="app-input cursor-pointer" [(ngModel)]="document.Priority">
+              <option value="Normal">Normal</option>
+              <option value="Urgent">Urgent</option>
+              <option value="Confidential">Confidential</option>
+            </select>
           </div>
 
           <div class="mb-5">

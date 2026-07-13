@@ -60,6 +60,12 @@ func (r *repository) ListByUser(userID uuid.UUID, search string) ([]models.Docum
 
 	// Apply RBAC filters based on Greenwood High School roles
 	switch user.Role {
+	case "Admin":
+		// Admin can see everything within the school
+		if user.SchoolID != nil {
+			query = query.Where("school_id = ?", *user.SchoolID)
+		}
+
 	case "Principal":
 		// Principal can see everything within the school
 		if user.SchoolID != nil {

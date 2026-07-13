@@ -53,7 +53,7 @@ export class DetailsComponent implements OnInit {
     this.api.getUsers().subscribe({
       next: (res) => {
         const currentId = this.currentUser?.ID || this.currentUser?.id;
-        this.users = res.filter(u => (u.id || u.ID) !== currentId);
+        this.users = res.filter(u => (u.id || u.ID) !== currentId && u.Role !== 'Student' && u.role !== 'Student');
         if (this.users.length > 0) {
           this.selectedUser = this.users[0].id || this.users[0].ID;
         }
@@ -229,13 +229,19 @@ export class DetailsComponent implements OnInit {
     formData.append('direction', this.document.Direction);
 
     this.api.replaceDocument(this.document.ID, formData).subscribe({
-      next: () => {
-        this.loadDetails(this.document.ID);
+      next: (res: any) => {
         this.selectedFile = null;
         this.replaceRemarks = '';
         this.replaceError = '';
         const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
         if (fileInput) fileInput.value = '';
+        
+        // Navigate to the newly generated document version
+        if (res && (res.ID || res.id)) {
+          this.router.navigate(['/details', res.ID || res.id]);
+        } else {
+          this.loadDetails(this.document.ID);
+        }
       },
       error: () => {
         this.replaceError = 'Failed to resubmit document.';
@@ -296,18 +302,7 @@ export class DetailsComponent implements OnInit {
     });
   }
 
-  recallDocument() {
-    if (confirm('Are you sure you want to recall this document back to your queue?')) {
-      this.api.recallDocument(this.document.ID).subscribe({
-        next: () => {
-          this.loadDetails(this.document.ID);
-        },
-        error: (err) => {
-          alert('Failed to recall document. It may have already been acted on.');
-        }
-      });
-    }
-  }
+
 
   submitReferral(action: string) {
     if (action === 'Refer' && !this.referralUser) {

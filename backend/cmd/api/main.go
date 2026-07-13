@@ -231,13 +231,16 @@ func seedData(gormDB *gorm.DB) {
 		{Name: "Brian Lee", Email: "brian@school.edu", Role: "Student", ClassSection: "10-B"},
 		{Name: "Chloe Davis", Email: "chloe@school.edu", Role: "Student", ClassSection: "10-C"},
 		{Name: "Daniel Roy", Email: "daniel@school.edu", Role: "Student", ClassSection: "10-D"},
-		// 2 Teachers
+		// 4 Teachers
 		{Name: "Bob Johnson", Email: "bob@school.edu", Role: "Teacher", ClassSection: "10-A", Subject: "Science"},
 		{Name: "Diana Prince", Email: "diana@school.edu", Role: "Teacher", ClassSection: "10-B", Subject: "Mathematics"},
-		// 1 Principal
+		{Name: "Evan Wright", Email: "evan@school.edu", Role: "Teacher", ClassSection: "10-C", Subject: "Mathematics"},
+		{Name: "Fiona Gallagher", Email: "fiona@school.edu", Role: "Teacher", ClassSection: "10-D", Subject: "English"},
+		// Principals
 		{Name: "Charlie Brown", Email: "charlie@school.edu", Role: "Principal"},
+		{Name: "George Vance", Email: "george@school.edu", Role: "Principal"},
 		// 1 Admin (school-level admin)
-		{Name: "Admin User", Email: "admin@school.edu", Role: "Admin"},
+		{Name: "System Administrator", Email: "admin@school.edu", Role: "Admin"},
 		// 1 Parent (kept for parent-child relationship)
 		{Name: "David Smith", Email: "david@school.edu", Role: "Parent"},
 	}

@@ -46,7 +46,7 @@ export class UploadComponent implements OnInit {
     this.api.getUsers().subscribe({
       next: (res) => {
         const currentId = this.auth.getCurrentUser()?.ID || this.auth.getCurrentUser()?.id;
-        this.users = res.filter(u => (u.id || u.ID) !== currentId);
+        this.users = res.filter(u => (u.id || u.ID) !== currentId && u.Role !== 'Student' && u.role !== 'Student');
         if (this.users.length > 0) {
           this.targetOwnerId = this.users[0].id || this.users[0].ID;
         }

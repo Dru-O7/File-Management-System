@@ -197,22 +197,6 @@ func (h *Handler) GetDocumentTypes(c echo.Context) error {
 	return c.JSON(http.StatusOK, list)
 }
 
-func (h *Handler) Recall(c echo.Context) error {
-	authenticatedUserIDStr := c.Get("user_id").(string)
-	userID, _ := uuid.Parse(authenticatedUserIDStr)
-
-	idStr := c.Param("id")
-	docID, err := uuid.Parse(idStr)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid document ID"})
-	}
-
-	res, err := h.service.Recall(docID, userID)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
-	}
-	return c.JSON(http.StatusOK, res)
-}
 
 func (h *Handler) AppendNote(c echo.Context) error {
 	authenticatedUserIDStr := c.Get("user_id").(string)
@@ -306,7 +290,7 @@ func (h *Handler) GetReports(c echo.Context) error {
 
 	var user models.User
 	err := h.service.(*service).repo.(*repository).db.First(&user, "id = ?", userID).Error
-	if err != nil || user.SchoolID == nil {
+	if err != nil || user.Role != "Admin" || user.SchoolID == nil {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Unauthorized to view school reports"})
 	}
 

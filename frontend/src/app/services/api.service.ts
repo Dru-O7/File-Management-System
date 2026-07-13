@@ -53,9 +53,7 @@ export class ApiService {
     return this.http.post<any>(`${this.apiUrl}/auth/signup`, { name, email, password });
   }
 
-  recallDocument(id: string) {
-    return this.http.post<any>(`${this.apiUrl}/documents/${id}/recall`, {});
-  }
+
 
   appendNote(id: string, note: string) {
     return this.http.post<any>(`${this.apiUrl}/documents/${id}/notes`, { note });

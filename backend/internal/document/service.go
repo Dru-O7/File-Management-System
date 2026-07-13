@@ -359,12 +359,20 @@ func (s *service) Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, t
 	s.repo.CreatePendingApprover(pendingApprover)
 
 	// Update old doc status to reflect it's been superseded
-	oldDoc.Status = models.StatusDraft // Archive old version out of active approval list
+	oldDoc.Status = models.StatusArchived // Archive old version out of active approval list
 	s.repo.Save(oldDoc)
 
 	wfAction := models.ActionResubmitted
 	if fileReplaced {
 		wfAction = models.ActionFileReplaced
+	}
+
+	// Carry over the entire workflow history from the previous version
+	oldHistories, _ := s.repo.GetHistoryByDocumentID(oldDoc.ID)
+	for _, h := range oldHistories {
+		h.ID = uuid.New()
+		h.DocumentID = newDocID
+		_ = s.repo.CreateHistory(&h)
 	}
 
 	history := &models.WorkflowHistory{
