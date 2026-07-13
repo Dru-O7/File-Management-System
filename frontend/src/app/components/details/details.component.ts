@@ -27,6 +27,14 @@ export class DetailsComponent implements OnInit {
   replaceError: string = '';
   replaceRemarks: string = '';
 
+  newNote: string = '';
+  noteError: string = '';
+  draftContent: string = '';
+  draftError: string = '';
+  selectedAttachmentFile: File | null = null;
+  attachmentError: string = '';
+  referralUser: string = '';
+
   pdfCacheBuster: number = Date.now();
   safePdfUrl: SafeResourceUrl | null = null;
   showForwardSelect: boolean = false;
@@ -328,6 +336,8 @@ export class DetailsComponent implements OnInit {
     const token = this.auth.getToken();
     const id = att.id || att.ID;
     return `http://localhost:8080/api/attachments/${id}/download?token=${token}&cb=${Date.now()}`;
+  }
+
   recallDocument() {
     if (confirm('Are you sure you want to recall this document back to your queue?')) {
       this.api.recallDocument(this.document.ID).subscribe({
