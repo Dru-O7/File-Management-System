@@ -22,6 +22,10 @@ export class DashboardComponent implements OnInit {
   activeTab: string = 'all_files';
   selectedPriority: string = 'All';
   reportsData: any = null;
+  loading: boolean = false;
+  historyEntries: any[] = [];
+  filteredHistoryEntries: any[] = [];
+  loadingHistory: boolean = false;
 
   constructor(private api: ApiService, private auth: AuthService, private router: Router) {}
 
@@ -31,16 +35,28 @@ export class DashboardComponent implements OnInit {
       this.router.navigate(['/login']);
       return;
     }
+    const role = this.currentUser.Role || this.currentUser.role;
+    if (role === 'Admin' || role === 'SuperAdmin') {
+      this.router.navigate(['/admin']);
+      return;
+    }
     this.loadDocumentTypes();
 
     this.api.searchSubject.subscribe(val => {
       this.searchText = val;
       this.loadDocuments();
+      if (this.activeTab === 'archived_closed') {
+        this.applyHistoryFilter();
+      }
     });
 
     this.api.activeTabSubject.subscribe(tab => {
       this.activeTab = tab;
-      this.applyFilter();
+      if (tab === 'archived_closed') {
+        this.loadHistory();
+      } else {
+        this.applyFilter();
+      }
     });
     
     if (this.currentUser.Role === 'Admin') {
@@ -66,10 +82,16 @@ export class DashboardComponent implements OnInit {
   }
 
   loadDocuments() {
+    this.loading = true;
     this.api.getDocuments(this.currentUser.ID, this.searchText).subscribe({
       next: (docs) => {
         this.documents = docs || [];
         this.applyFilter();
+        this.loading = false;
+      },
+      error: (err) => {
+        console.error('Failed to load documents:', err);
+        this.loading = false;
       }
     });
   }
@@ -198,6 +220,37 @@ export class DashboardComponent implements OnInit {
       return `${days}d ago`;
     }
     return `${hours}h ago`;
+  }
+
+  loadHistory() {
+    this.loadingHistory = true;
+    this.api.getMyHistory().subscribe({
+      next: (entries) => {
+        this.historyEntries = entries || [];
+        this.applyHistoryFilter();
+        this.loadingHistory = false;
+      },
+      error: (err) => {
+        console.error('Failed to load user history:', err);
+        this.loadingHistory = false;
+      }
+    });
+  }
+
+  applyHistoryFilter() {
+    let list = this.historyEntries;
+    if (this.searchText) {
+      const searchLower = this.searchText.toLowerCase();
+      list = list.filter(entry => 
+        (entry.DocumentTitle || '').toLowerCase().includes(searchLower) ||
+        (entry.DocumentNum || '').toLowerCase().includes(searchLower) ||
+        (entry.Remarks || '').toLowerCase().includes(searchLower) ||
+        (entry.Action || '').toLowerCase().includes(searchLower) ||
+        (entry.Actor?.Name || '').toLowerCase().includes(searchLower) ||
+        (entry.Target?.Name || '').toLowerCase().includes(searchLower)
+      );
+    }
+    this.filteredHistoryEntries = list;
   }
 
   goToUpload() {

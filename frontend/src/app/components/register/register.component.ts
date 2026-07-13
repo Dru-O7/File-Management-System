@@ -33,7 +33,8 @@ export class RegisterComponent {
       return;
     }
 
-    if (!emailTrimed.includes('@') || !emailTrimed.includes('.')) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailTrimed)) {
       this.error = 'Please enter a valid email address.';
       return;
     }

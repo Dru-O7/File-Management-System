@@ -7,23 +7,23 @@
     <p class="text-center text-[var(--text-secondary)] text-sm mb-6">Create your SchoolSync account</p>
     
     <div class="mb-4">
-      <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Full Name</label>
-      <input type="text" class="app-input" [(ngModel)]="name" placeholder="e.g. John Doe">
+      <label for="reg-name" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Full Name</label>
+      <input id="reg-name" type="text" class="app-input" [(ngModel)]="name" placeholder="e.g. John Doe">
     </div>
 
     <div class="mb-4">
-      <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Email Address</label>
-      <input type="email" class="app-input" [(ngModel)]="email" placeholder="e.g. john@school.edu">
+      <label for="reg-email" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Email Address</label>
+      <input id="reg-email" type="email" class="app-input" [(ngModel)]="email" placeholder="e.g. john@school.edu">
     </div>
 
     <div class="mb-4">
-      <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Password (Min 8 chars)</label>
-      <input type="password" class="app-input" [(ngModel)]="password" placeholder="••••••••">
+      <label for="reg-password" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Password (Min 8 chars)</label>
+      <input id="reg-password" type="password" class="app-input" [(ngModel)]="password" placeholder="••••••••">
     </div>
 
     <div class="mb-5">
-      <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Confirm Password</label>
-      <input type="password" class="app-input" [(ngModel)]="confirmPassword" placeholder="••••••••">
+      <label for="reg-confirm-password" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Confirm Password</label>
+      <input id="reg-confirm-password" type="password" class="app-input" [(ngModel)]="confirmPassword" placeholder="••••••••">
     </div>
     
     <div *ngIf="error" class="text-rose-600 mb-4 text-sm p-3 bg-rose-50 border border-rose-100 rounded-xl">

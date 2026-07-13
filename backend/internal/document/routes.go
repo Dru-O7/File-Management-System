@@ -25,4 +25,5 @@ func RegisterRoutes(g *echo.Group, handler *Handler, jwtSecret []byte) {
 	r.POST("/documents/:id/attachments", handler.AddAttachment)
 	r.GET("/notifications", handler.GetNotifications)
 	r.GET("/reports", handler.GetReports)
+	r.GET("/my-history", handler.GetMyHistory)
 }

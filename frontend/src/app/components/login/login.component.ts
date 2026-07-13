@@ -16,16 +16,37 @@ export class LoginComponent {
   email: string = 'alice@school.edu';
   password: string = 'password';
   error: string = '';
+  loading: boolean = false;
 
   constructor(private api: ApiService, private auth: AuthService, private router: Router) {}
 
   login() {
-    this.api.login(this.email, this.password).subscribe({
+    this.error = '';
+    const emailTrimmed = this.email.trim();
+    if (!emailTrimmed || !this.password) {
+      this.error = 'All fields are required.';
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailTrimmed)) {
+      this.error = 'Please enter a valid email address.';
+      return;
+    }
+
+    this.loading = true;
+    this.api.login(emailTrimmed, this.password).subscribe({
       next: (res) => {
+        this.loading = false;
         this.auth.setCurrentUser(res.user, res.token);
-        this.router.navigate(['/dashboard']);
+        const role = res.user.Role || res.user.role;
+        if (role === 'Admin' || role === 'SuperAdmin') {
+          this.router.navigate(['/admin']);
+        } else {
+          this.router.navigate(['/dashboard']);
+        }
       },
       error: () => {
+        this.loading = false;
         this.error = 'Invalid email/password or user not found. (Hint: default password is "password")';
       }
     });

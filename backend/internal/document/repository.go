@@ -16,6 +16,7 @@ type Repository interface {
 	ListByUser(userID uuid.UUID, search string) ([]models.Document, error)
 	CreateHistory(history *models.WorkflowHistory) error
 	GetHistoryByDocumentID(docID uuid.UUID) ([]models.WorkflowHistory, error)
+	GetHistoryByUserID(userID uuid.UUID) ([]models.WorkflowHistory, error)
 	CountSignatures(docID uuid.UUID) (int, error)
 	GetDocumentTypeByID(id uuid.UUID) (*models.DocumentType, error)
 	GetDocumentTypeBySlug(schoolID uuid.UUID, slug string) (*models.DocumentType, error)
@@ -127,6 +128,18 @@ func (r *repository) CreateHistory(history *models.WorkflowHistory) error {
 func (r *repository) GetHistoryByDocumentID(docID uuid.UUID) ([]models.WorkflowHistory, error) {
 	var history []models.WorkflowHistory
 	err := r.db.Preload("Actor").Preload("Target").Where("document_id = ?", docID).Order("created_at asc").Find(&history).Error
+	if err != nil {
+		return nil, err
+	}
+	return history, nil
+}
+
+func (r *repository) GetHistoryByUserID(userID uuid.UUID) ([]models.WorkflowHistory, error) {
+	var history []models.WorkflowHistory
+	err := r.db.Preload("Actor").Preload("Target").Preload("Document").Preload("Document.Uploader").Preload("Document.CurrentOwner").
+		Where("actor_id = ? OR target_id = ?", userID, userID).
+		Order("created_at desc").
+		Find(&history).Error
 	if err != nil {
 		return nil, err
 	}

@@ -68,3 +68,21 @@ type DocumentDetailsResponse struct {
 	Document DocumentResponse  `json:"document"`
 	History  []HistoryResponse `json:"history"`
 }
+
+type UserHistoryEntry struct {
+	ID            uuid.UUID             `json:"ID"`
+	DocumentID    uuid.UUID             `json:"DocumentID"`
+	ActorID       uuid.UUID             `json:"ActorID"`
+	TargetID      *uuid.UUID            `json:"TargetID"`
+	Action        models.WorkflowAction `json:"Action"`
+	Remarks       string                `json:"Remarks"`
+	Signature     string                `json:"Signature"`
+	CreatedAt     time.Time             `json:"CreatedAt"`
+	Actor         models.User           `json:"Actor"`
+	Target        *models.User          `json:"Target"`
+	DocumentTitle string                `json:"DocumentTitle"`
+	DocumentNum   string                `json:"DocumentNum"`
+	DocumentStatus models.DocumentStatus `json:"DocumentStatus"`
+	Category      string                `json:"Category"`
+	Priority      string                `json:"Priority"`
+}

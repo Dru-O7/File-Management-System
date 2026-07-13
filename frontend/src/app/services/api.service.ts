@@ -77,6 +77,10 @@ export class ApiService {
     return this.http.get<any>(`${this.apiUrl}/reports`);
   }
 
+  getMyHistory() {
+    return this.http.get<any[]>(`${this.apiUrl}/my-history`);
+  }
+
   // ── Admin API ──────────────────────────────────────────────────────────────
 
   getAdminStats() {
