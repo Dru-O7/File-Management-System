@@ -2,6 +2,8 @@ package document
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"office-file-sharing/backend/internal/shared/models"
 
@@ -100,6 +102,16 @@ func (h *Handler) Download(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 	}
 
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return c.JSON(http.StatusNotFound, map[string]string{"message": "Not Found", "debug_path": filePath})
+	}
+	
+	// Convert to absolute path since c.File seems to sometimes fail with relative paths depending on echo version
+	absPath, absErr := filepath.Abs(filePath)
+	if absErr == nil {
+		filePath = absPath
+	}
+
 	return c.File(filePath)
 }
 
@@ -119,6 +131,15 @@ func (h *Handler) DownloadAttachment(c echo.Context) error {
 			return c.JSON(http.StatusForbidden, map[string]string{"error": err.Error()})
 		}
 		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	}
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return c.JSON(http.StatusNotFound, map[string]string{"message": "Not Found", "debug_path": filePath})
+	}
+
+	absPath, absErr := filepath.Abs(filePath)
+	if absErr == nil {
+		filePath = absPath
 	}
 
 	return c.File(filePath)
