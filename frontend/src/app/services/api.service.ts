@@ -126,5 +126,9 @@ export class ApiService {
   adminUpdateSchool(id: string, data: any) {
     return this.http.put<any>(`${this.apiUrl}/admin/schools/${id}`, data);
   }
+
+  recallDocument(docId: string) {
+    return this.http.post<any>(`${this.apiUrl}/documents/${docId}/recall`, {});
+  }
 }
 
