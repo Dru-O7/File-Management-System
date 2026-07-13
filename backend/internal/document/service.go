@@ -74,10 +74,15 @@ func (s *service) Upload(uploaderID, targetOwnerID uuid.UUID, title, description
 	if err != nil {
 		return nil, err
 	}
-	defer dst.Close()
-
 	if _, err = io.Copy(dst, src); err != nil {
+		dst.Close()
 		return nil, err
+	}
+	dst.Close()
+
+	// Backup original clean (unsigned) file
+	if err := copyFile(destPath, destPath+".original"); err != nil {
+		log.Printf("Warning: failed to back up original file: %v", err)
 	}
 
 	uniqueNum := fmt.Sprintf("DOC-%d", time.Now().UnixNano()/1e6)
@@ -256,8 +261,8 @@ func (s *service) Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, t
 		return nil, errors.New("document must be in 'Sent Back' status to be replaced or resubmitted")
 	}
 
-	// Resolve target path (either new uploaded file or keep old reference path)
-	destPath := oldDoc.FilePath
+	// Resolve target path (either new uploaded file or copy from previous clean original file)
+	var destPath string
 	filename := oldDoc.Filename
 	fileReplaced := false
 
@@ -271,12 +276,32 @@ func (s *service) Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, t
 
 			dst, err := os.Create(destPath)
 			if err == nil {
-				defer dst.Close()
 				if _, err = io.Copy(dst, src); err == nil {
 					filename = fileHeader.Filename
 					fileReplaced = true
 				}
+				dst.Close()
+				if fileReplaced {
+					_ = copyFile(destPath, destPath+".original")
+				}
 			}
+		}
+	} else {
+		// No new file uploaded: copy the previous clean original file
+		uniquePrefix := fmt.Sprintf("%d_resub_", time.Now().Unix())
+		safeFilename := uniquePrefix + filepath.Base(oldDoc.Filename)
+		destPath = filepath.Join(s.uploadsDir, safeFilename)
+
+		prevOriginalPath := oldDoc.FilePath + ".original"
+		if _, err := os.Stat(prevOriginalPath); os.IsNotExist(err) {
+			prevOriginalPath = oldDoc.FilePath // fallback to whatever is there
+		}
+
+		if err := copyFile(prevOriginalPath, destPath); err == nil {
+			_ = copyFile(destPath, destPath+".original")
+		} else {
+			// Fallback: reuse path directly
+			destPath = oldDoc.FilePath
 		}
 	}
 
@@ -1391,4 +1416,24 @@ func stampSignatureOnDocx(docxPath string, base64Signature string, existingSigCo
 	}
 
 	return nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	return out.Sync()
 }
