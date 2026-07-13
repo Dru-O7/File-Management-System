@@ -415,7 +415,7 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 	switch wfAction {
 	case models.ActionApproved:
 		newStatus = models.StatusApproved
-		nextOwnerID = authenticatedUserID
+		nextOwnerID = doc.UploaderID // Send the signed file to the sender back
 
 		// Mark current approver as done
 		s.repo.MarkApproverStatus(doc.ID, authenticatedUserID, doc.CurrentStage, "Approved")
@@ -554,9 +554,15 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 	// Queue notification to the next reviewer or uploader on action taken
 	targetNotifRecipient := doc.CurrentOwnerID
 	template := "action_required"
-	if doc.Status == models.StatusApproved || doc.Status == models.StatusRejected || doc.Status == models.StatusSentBack {
+	if doc.Status == models.StatusApproved || doc.Status == models.StatusRejected || doc.Status == models.StatusSentBack || doc.Status == models.StatusClosed {
 		targetNotifRecipient = doc.UploaderID
 		template = string(doc.Status)
+	}
+
+	if doc.Status == models.StatusClosed {
+		var uploaderUser models.User
+		s.repo.(*repository).db.First(&uploaderUser, "id = ?", doc.UploaderID)
+		log.Printf("[Email Service Mock] Sending email to %s: 'Your file \"%s\" has been signed and closed.' with transaction token %s", uploaderUser.Email, doc.Title, token)
 	}
 
 	notifPayload := fmt.Sprintf(`{"document_title": "%s", "actor_name": "%s", "action": "%s"}`, doc.Title, actorUser.Name, req.Action)

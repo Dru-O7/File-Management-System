@@ -87,7 +87,7 @@
               (click)="selectTab('approved')">Approved ({{ getTabCount('approved') }})</button>
       <button class="px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer"
               [ngClass]="{'border-[var(--primary)] text-[var(--primary)]': activeTab === 'archived_closed', 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]': activeTab !== 'archived_closed'}"
-              (click)="selectTab('archived_closed')">Archived/Closed ({{ getTabCount('archived_closed') }})</button>
+              (click)="selectTab('archived_closed')">Closed ({{ getTabCount('archived_closed') }})</button>
     </div>
   </div>
 

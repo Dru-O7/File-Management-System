@@ -95,6 +95,8 @@ export class AppComponent implements OnInit, OnDestroy {
         return `Document rejected: "${payload.document_title}" rejected by ${payload.actor_name}`;
       } else if (n.Template === 'sent_back') {
         return `Document sent back for revision: "${payload.document_title}" by ${payload.actor_name}`;
+      } else if (n.Template === 'closed') {
+        return `Your file "${payload.document_title}" has been signed and closed by ${payload.actor_name}`;
       } else if (n.Template === 'sla_warning') {
         return payload.message || `SLA Warning: "${payload.document_title}" has breached deadline.`;
       }
