@@ -3,38 +3,38 @@
     <h2 class="text-2xl font-bold text-[var(--text-primary)] mb-6">Submit Document</h2>
     
     <div class="mb-5">
-      <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Select File (PDF, DOCX)</label>
-      <input type="file" class="app-input file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-655/10 file:text-[var(--primary)] hover:file:bg-indigo-655/20 file:cursor-pointer" (change)="onFileSelected($event)" accept=".pdf,.docx">
+      <label for="up-file" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Select File (PDF, DOCX)</label>
+      <input id="up-file" type="file" class="app-input file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-655/10 file:text-[var(--primary)] hover:file:bg-indigo-655/20 file:cursor-pointer" (change)="onFileSelected($event)" accept=".pdf,.docx">
     </div>
 
     <div class="mb-5">
-      <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Document Title</label>
-      <input type="text" class="app-input" [(ngModel)]="title" placeholder="e.g. Science Project Report">
+      <label for="up-title" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Document Title</label>
+      <input id="up-title" type="text" class="app-input" [(ngModel)]="title" placeholder="e.g. Science Project Report">
     </div>
 
     <div class="mb-5">
-      <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Description / Purpose</label>
-      <textarea class="app-input" rows="3" [(ngModel)]="description" placeholder="Describe the purpose of this document (e.g. Term-end project submission for Physics class)..."></textarea>
+      <label for="up-desc" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Description / Purpose</label>
+      <textarea id="up-desc" class="app-input" rows="3" [(ngModel)]="description" placeholder="Describe the purpose of this document (e.g. Term-end project submission for Physics class)..."></textarea>
     </div>
 
     <div class="grid grid-cols-2 gap-4 mb-5">
       <div>
-        <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Category</label>
-        <select class="app-input cursor-pointer" [(ngModel)]="category">
+        <label for="up-category" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Category</label>
+        <select id="up-category" class="app-input cursor-pointer" [(ngModel)]="category">
           <option *ngFor="let dt of documentTypes" [value]="dt.Name" class="bg-white text-slate-800">{{ dt.Name }}</option>
         </select>
       </div>
 
       <div>
-        <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Tags (comma separated)</label>
-        <input type="text" class="app-input" [(ngModel)]="tags" placeholder="e.g. urgent, class-10, term-2">
+        <label for="up-tags" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Tags (comma separated)</label>
+        <input id="up-tags" type="text" class="app-input" [(ngModel)]="tags" placeholder="e.g. urgent, class-10, term-2">
       </div>
     </div>
 
     <div class="grid grid-cols-2 gap-4 mb-5">
       <div>
-        <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Priority</label>
-        <select class="app-input cursor-pointer" [(ngModel)]="priority">
+        <label for="up-priority" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Priority</label>
+        <select id="up-priority" class="app-input cursor-pointer" [(ngModel)]="priority">
           <option value="Normal">Normal</option>
           <option value="Urgent">Urgent</option>
           <option value="Confidential">Confidential</option>
@@ -42,8 +42,8 @@
       </div>
 
       <div>
-        <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Correspondence Direction</label>
-        <select class="app-input cursor-pointer" [(ngModel)]="direction">
+        <label for="up-direction" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Correspondence Direction</label>
+        <select id="up-direction" class="app-input cursor-pointer" [(ngModel)]="direction">
           <option value="Inward">Inward (Incoming / Received)</option>
           <option value="Outward">Outward (Outgoing / Dispatched)</option>
         </select>
@@ -51,8 +51,8 @@
     </div>
 
     <div class="mb-6">
-      <label class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Submit To (Teacher / Principal)</label>
-      <select class="app-input cursor-pointer" [(ngModel)]="targetOwnerId">
+      <label for="up-target" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Submit To (Teacher / Principal)</label>
+      <select id="up-target" class="app-input cursor-pointer" [(ngModel)]="targetOwnerId">
         <option *ngFor="let user of users" [value]="user.id || user.ID" class="bg-white text-slate-800">{{ user.name || user.Name }} ({{ user.email || user.Email }})</option>
       </select>
     </div>
@@ -60,8 +60,11 @@
     <div *ngIf="error" class="text-rose-600 mb-5 text-sm p-3 bg-rose-50 border border-rose-100 rounded-xl">{{ error }}</div>
 
     <div class="flex gap-4 mt-6">
-      <button class="app-btn-primary cursor-pointer flex-1 sm:flex-initial" (click)="upload()">Upload & Submit</button>
-      <button class="app-btn-secondary cursor-pointer flex-1 sm:flex-initial" (click)="cancel()">Cancel</button>
+      <button class="app-btn-primary cursor-pointer flex-1 sm:flex-initial" [disabled]="loading" (click)="upload()">
+        <span *ngIf="!loading">Upload & Submit</span>
+        <span *ngIf="loading">Uploading...</span>
+      </button>
+      <button class="app-btn-secondary cursor-pointer flex-1 sm:flex-initial" [disabled]="loading" (click)="cancel()">Cancel</button>
     </div>
   </div>
 </div>

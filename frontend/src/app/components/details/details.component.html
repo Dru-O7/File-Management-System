@@ -1,6 +1,13 @@
-<div class="mt-4 max-w-7xl mx-auto px-4" *ngIf="document">
-  <div class="flex justify-between items-center mb-6">
-    <button class="app-btn-secondary cursor-pointer" (click)="router.navigate(['/dashboard'])">&larr; Back to Dashboard</button>
+<div class="mt-4 max-w-7xl mx-auto px-4">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="py-16 text-center">
+    <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[var(--primary)] border-t-transparent mb-4"></div>
+    <p class="text-sm font-semibold text-[var(--text-secondary)]">Loading document details...</p>
+  </div>
+
+  <ng-container *ngIf="!loading && document">
+    <div class="flex justify-between items-center mb-6">
+      <button class="app-btn-secondary cursor-pointer" (click)="router.navigate(['/dashboard'])">&larr; Back to Dashboard</button>
     
     <!-- Recall button if uploader and pending -->
     <button *ngIf="(document.UploaderID || '').toLowerCase() === (currentUser.ID || currentUser.id || '').toLowerCase() && document.Status === 'Pending Approval'"
@@ -220,7 +227,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </ng-container>
 </div>
 
 

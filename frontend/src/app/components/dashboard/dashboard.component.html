@@ -97,11 +97,19 @@
       <span class="text-[10px] font-bold text-[var(--text-muted)] bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">{{ filteredDocuments.length }} items</span>
     </div>
     
-    <div *ngIf="filteredDocuments.length === 0" class="text-center py-12 text-[var(--text-muted)]">
+    <!-- Loading State -->
+    <div *ngIf="loading" class="py-16 text-center">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[var(--primary)] border-t-transparent mb-4"></div>
+      <p class="text-sm font-semibold text-[var(--text-secondary)]">Loading documents from SchoolSync...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!loading && filteredDocuments.length === 0" class="text-center py-12 text-[var(--text-muted)]">
       No documents found matching these filters.
     </div>
 
-    <div class="space-y-3.5" *ngIf="filteredDocuments.length > 0">
+    <!-- Active List -->
+    <div class="space-y-3.5" *ngIf="!loading && filteredDocuments.length > 0">
       <div *ngFor="let doc of filteredDocuments" class="p-4 bg-slate-50 hover:bg-slate-100 border border-[var(--border)] rounded-[var(--radius-md)] flex justify-between items-center transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md" (click)="goToDetails(doc.ID)">
         <div class="flex-1 min-w-0 pr-4">
           <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">

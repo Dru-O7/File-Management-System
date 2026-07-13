@@ -22,6 +22,7 @@ export class DashboardComponent implements OnInit {
   activeTab: string = 'all_files';
   selectedPriority: string = 'All';
   reportsData: any = null;
+  loading: boolean = false;
 
   constructor(private api: ApiService, private auth: AuthService, private router: Router) {}
 
@@ -29,6 +30,11 @@ export class DashboardComponent implements OnInit {
     this.currentUser = this.auth.getCurrentUser();
     if (!this.currentUser) {
       this.router.navigate(['/login']);
+      return;
+    }
+    const role = this.currentUser.Role || this.currentUser.role;
+    if (role === 'Admin' || role === 'SuperAdmin') {
+      this.router.navigate(['/admin']);
       return;
     }
     this.loadDocumentTypes();
@@ -66,10 +72,16 @@ export class DashboardComponent implements OnInit {
   }
 
   loadDocuments() {
+    this.loading = true;
     this.api.getDocuments(this.currentUser.ID, this.searchText).subscribe({
       next: (docs) => {
         this.documents = docs || [];
         this.applyFilter();
+        this.loading = false;
+      },
+      error: (err) => {
+        console.error('Failed to load documents:', err);
+        this.loading = false;
       }
     });
   }

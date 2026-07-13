@@ -91,8 +91,20 @@ func (s *service) Upload(uploaderID, targetOwnerID uuid.UUID, title, description
 	slug := strings.ToLower(strings.ReplaceAll(category, " ", "-"))
 	var schoolID *uuid.UUID
 	var uploaderUser models.User
-	if err := s.repo.(*repository).db.First(&uploaderUser, "id = ?", uploaderID).Error; err == nil {
-		schoolID = uploaderUser.SchoolID
+	if err := s.repo.(*repository).db.First(&uploaderUser, "id = ?", uploaderID).Error; err != nil {
+		return nil, errors.New("uploader not found")
+	}
+	if uploaderUser.Role == "Admin" || uploaderUser.Role == "SuperAdmin" {
+		return nil, errors.New("administrators are not authorized to upload documents")
+	}
+	schoolID = uploaderUser.SchoolID
+
+	var targetUser models.User
+	if err := s.repo.(*repository).db.First(&targetUser, "id = ?", targetOwnerID).Error; err != nil {
+		return nil, errors.New("approver not found")
+	}
+	if targetUser.Role == "Admin" || targetUser.Role == "SuperAdmin" || targetUser.Role == "Parent" {
+		return nil, errors.New("cannot assign documents to admins or parents")
 	}
 
 	var docTypeID *uuid.UUID
@@ -251,6 +263,22 @@ func (s *service) Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, t
 	oldDoc, err := s.repo.GetByID(docID)
 	if err != nil {
 		return nil, errors.New("document not found")
+	}
+
+	var authUser models.User
+	if err := s.repo.(*repository).db.First(&authUser, "id = ?", authenticatedUserID).Error; err != nil {
+		return nil, errors.New("uploader profile not found")
+	}
+	if authUser.Role == "Admin" || authUser.Role == "SuperAdmin" {
+		return nil, errors.New("administrators are not authorized to resubmit documents")
+	}
+
+	var targetUser models.User
+	if err := s.repo.(*repository).db.First(&targetUser, "id = ?", targetOwnerID).Error; err != nil {
+		return nil, errors.New("approver not found")
+	}
+	if targetUser.Role == "Admin" || targetUser.Role == "SuperAdmin" || targetUser.Role == "Parent" {
+		return nil, errors.New("cannot assign documents to admins or parents")
 	}
 
 	if oldDoc.UploaderID != authenticatedUserID {
@@ -431,7 +459,12 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 	}
 
 	var actorUser models.User
-	s.repo.(*repository).db.First(&actorUser, "id = ?", authenticatedUserID)
+	if err := s.repo.(*repository).db.First(&actorUser, "id = ?", authenticatedUserID).Error; err != nil {
+		return nil, errors.New("actor profile not found")
+	}
+	if actorUser.Role == "Admin" || actorUser.Role == "SuperAdmin" {
+		return nil, errors.New("administrators are not authorized to take workflow actions")
+	}
 
 	wfAction := models.WorkflowAction(req.Action)
 	var newStatus models.DocumentStatus
@@ -450,6 +483,13 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 			dt, errDT := s.repo.GetDocumentTypeByID(*doc.DocumentTypeID)
 			if errDT == nil {
 				if req.TargetID != nil && *req.TargetID != authenticatedUserID {
+					var targetUser models.User
+					if err := s.repo.(*repository).db.First(&targetUser, "id = ?", *req.TargetID).Error; err != nil {
+						return nil, errors.New("next stage approver not found")
+					}
+					if targetUser.Role == "Admin" || targetUser.Role == "SuperAdmin" || targetUser.Role == "Parent" {
+						return nil, errors.New("cannot assign next workflow stage to admins or parents")
+					}
 					newStatus = models.StatusPendingApproval
 					nextOwnerID = *req.TargetID
 					doc.CurrentStage = doc.CurrentStage + 1
@@ -491,6 +531,13 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 	case models.ActionForwarded, "Forward":
 		if req.TargetID == nil {
 			return nil, errors.New("target ID is required to forward this document")
+		}
+		var targetUser models.User
+		if err := s.repo.(*repository).db.First(&targetUser, "id = ?", *req.TargetID).Error; err != nil {
+			return nil, errors.New("forward target user not found")
+		}
+		if targetUser.Role == "Admin" || targetUser.Role == "SuperAdmin" || targetUser.Role == "Parent" {
+			return nil, errors.New("cannot forward documents to admins or parents")
 		}
 		newStatus = models.StatusPendingApproval
 		nextOwnerID = *req.TargetID

@@ -30,6 +30,7 @@ export class DetailsComponent implements OnInit {
   pdfCacheBuster: number = Date.now();
   safePdfUrl: SafeResourceUrl | null = null;
   showForwardSelect: boolean = false;
+  loading: boolean = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -77,21 +78,29 @@ export class DetailsComponent implements OnInit {
   }
 
   loadDetails(id: string) {
-    this.api.getDocumentDetails(id).subscribe(res => {
-      this.document = res.document;
-      this.history = res.history;
-      this.pdfCacheBuster = Date.now();
-      
-      const token = this.auth.getToken();
-      const url = `http://localhost:8080/api/documents/${this.document.ID}/download?token=${token}&cb=${this.pdfCacheBuster}`;
-      this.safePdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+    this.loading = true;
+    this.api.getDocumentDetails(id).subscribe({
+      next: (res) => {
+        this.document = res.document;
+        this.history = res.history;
+        this.pdfCacheBuster = Date.now();
+        
+        const token = this.auth.getToken();
+        const url = `http://localhost:8080/api/documents/${this.document.ID}/download?token=${token}&cb=${this.pdfCacheBuster}`;
+        this.safePdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
 
-      this.draftContent = res.document.DraftSpace || '';
-      
-      if (this.isDocx(this.document.Filename)) {
-        setTimeout(() => {
-          this.renderDocxPreview();
-        }, 100);
+        this.draftContent = res.document.DraftSpace || '';
+        
+        if (this.isDocx(this.document.Filename)) {
+          setTimeout(() => {
+            this.renderDocxPreview();
+          }, 100);
+        }
+        this.loading = false;
+      },
+      error: (err) => {
+        console.error('Failed to load document details:', err);
+        this.loading = false;
       }
     });
   }
@@ -205,14 +214,6 @@ export class DetailsComponent implements OnInit {
     return this.sanitizer.bypassSecurityTrustUrl(signature);
   }
 
-  newNote: string = '';
-  draftContent: string = '';
-  selectedAttachmentFile: File | null = null;
-  noteError: string = '';
-  draftError: string = '';
-  attachmentError: string = '';
-  referralUser: string = '';
-
   replaceFile() {
     const formData = new FormData();
     if (this.selectedFile) {
@@ -243,59 +244,6 @@ export class DetailsComponent implements OnInit {
     });
   }
 
-  submitNote() {
-    if (!this.newNote.trim()) {
-      this.noteError = 'Note content cannot be empty.';
-      return;
-    }
-    this.api.appendNote(this.document.ID, this.newNote).subscribe({
-      next: () => {
-        this.newNote = '';
-        this.noteError = '';
-        this.loadDetails(this.document.ID);
-      },
-      error: (err) => {
-        this.noteError = 'Failed to append note to the noting sheet.';
-      }
-    });
-  }
-
-  saveDraft() {
-    this.api.saveDraft(this.document.ID, this.draftContent).subscribe({
-      next: () => {
-        this.draftError = '';
-        this.loadDetails(this.document.ID);
-        alert('Draft order/letter saved successfully.');
-      },
-      error: (err) => {
-        this.draftError = 'Failed to save draft.';
-      }
-    });
-  }
-
-  onAttachmentSelected(event: any) {
-    this.selectedAttachmentFile = event.target.files[0];
-  }
-
-  uploadAttachment() {
-    if (!this.selectedAttachmentFile) {
-      this.attachmentError = 'Please select a file to enclose.';
-      return;
-    }
-    this.api.addAttachment(this.document.ID, this.selectedAttachmentFile).subscribe({
-      next: () => {
-        this.selectedAttachmentFile = null;
-        this.attachmentError = '';
-        const fileInput = document.getElementById('att-file-input') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
-        this.loadDetails(this.document.ID);
-      },
-      error: (err) => {
-        this.attachmentError = 'Failed to upload attachment.';
-      }
-    });
-  }
-
   recallDocument() {
     if (confirm('Are you sure you want to recall this document back to your queue?')) {
       this.api.recallDocument(this.document.ID).subscribe({
@@ -307,32 +255,5 @@ export class DetailsComponent implements OnInit {
         }
       });
     }
-  }
-
-  submitReferral(action: string) {
-    if (action === 'Refer' && !this.referralUser) {
-      alert('Please select a user to refer this document to.');
-      return;
-    }
-    const remarks = prompt(`Enter optional remarks for this ${action.toLowerCase()} action:`);
-    const actionData = {
-      action: action,
-      target_id: action === 'Refer' ? this.referralUser : null,
-      remarks: remarks || `${action} action completed.`
-    };
-    this.api.submitAction(this.document.ID, actionData).subscribe({
-      next: () => {
-        this.loadDetails(this.document.ID);
-      },
-      error: (err) => {
-        alert(`Failed to complete ${action.toLowerCase()} action.`);
-      }
-    });
-  }
-
-  getDownloadAttachmentUrl(att: any): string {
-    const token = this.auth.getToken();
-    const id = att.id || att.ID;
-    return `http://localhost:8080/api/attachments/${id}/download?token=${token}&cb=${Date.now()}`;
   }
 }

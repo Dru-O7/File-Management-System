@@ -7,11 +7,17 @@ export const adminGuard = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
   const user = auth.getCurrentUser();
+  console.log('adminGuard: currentUser is', user);
 
-  if (user && (user.Role === 'Admin' || user.Role === 'SuperAdmin')) {
-    return true;
+  if (user) {
+    const role = user.Role || user.role;
+    console.log('adminGuard: detected role is', role);
+    if (role === 'Admin' || role === 'SuperAdmin') {
+      return true;
+    }
   }
 
+  console.warn('adminGuard: access denied, redirecting to /dashboard');
   router.navigate(['/dashboard']);
   return false;
 };

@@ -102,6 +102,13 @@
       <!-- SECTION: OVERVIEW -->
       <!-- ══════════════════════════════════════════════════════════════ -->
       <div *ngIf="activeSection==='overview'">
+        <!-- Loader -->
+        <div *ngIf="loadingStats" class="py-16 text-center">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[var(--primary)] border-t-transparent mb-4"></div>
+          <p class="text-sm font-semibold text-[var(--text-secondary)]">Loading statistics...</p>
+        </div>
+
+        <ng-container *ngIf="!loadingStats">
 
         <!-- Stats Cards -->
         <div class="stats-grid">
@@ -187,12 +194,20 @@
             <div *ngIf="schools.length === 0" class="td-muted" style="font-size:12px;padding-top:8px;">No schools found.</div>
           </div>
         </div>
+      </ng-container>
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════ -->
       <!-- SECTION: USERS -->
       <!-- ══════════════════════════════════════════════════════════════ -->
       <div *ngIf="activeSection==='users'">
+        <!-- Loader -->
+        <div *ngIf="loadingUsers" class="py-16 text-center">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[var(--primary)] border-t-transparent mb-4"></div>
+          <p class="text-sm font-semibold text-[var(--text-secondary)]">Loading users...</p>
+        </div>
+
+        <ng-container *ngIf="!loadingUsers">
         <div *ngIf="userSuccess" class="alert alert-success" style="margin-bottom:16px;">{{userSuccess}}</div>
         <div *ngIf="userError && !showUserModal" class="alert alert-error" style="margin-bottom:16px;">{{userError}}</div>
 
@@ -265,13 +280,20 @@
               </tr>
             </tbody>
           </table>
-        </div>
+        </ng-container>
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════ -->
       <!-- SECTION: DOCUMENT TYPES -->
       <!-- ══════════════════════════════════════════════════════════════ -->
       <div *ngIf="activeSection==='doctypes'">
+        <!-- Loader -->
+        <div *ngIf="loadingDocTypes" class="py-16 text-center">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[var(--primary)] border-t-transparent mb-4"></div>
+          <p class="text-sm font-semibold text-[var(--text-secondary)]">Loading document types...</p>
+        </div>
+
+        <ng-container *ngIf="!loadingDocTypes">
         <div *ngIf="docTypeSuccess" class="alert alert-success" style="margin-bottom:16px;">{{docTypeSuccess}}</div>
         <div *ngIf="docTypeError && !showDocTypeModal" class="alert alert-error" style="margin-bottom:16px;">{{docTypeError}}</div>
 
@@ -345,13 +367,20 @@
               </tr>
             </tbody>
           </table>
-        </div>
+        </ng-container>
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════ -->
       <!-- SECTION: SCHOOLS -->
       <!-- ══════════════════════════════════════════════════════════════ -->
       <div *ngIf="activeSection==='schools'">
+        <!-- Loader -->
+        <div *ngIf="loadingSchools" class="py-16 text-center">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[var(--primary)] border-t-transparent mb-4"></div>
+          <p class="text-sm font-semibold text-[var(--text-secondary)]">Loading schools...</p>
+        </div>
+
+        <ng-container *ngIf="!loadingSchools">
         <div *ngIf="schoolSuccess" class="alert alert-success" style="margin-bottom:16px;">{{schoolSuccess}}</div>
 
         <div class="section-header">
@@ -395,7 +424,7 @@
               </tr>
             </tbody>
           </table>
-        </div>
+        </ng-container>
       </div>
 
     </div><!-- /content-area -->
@@ -414,39 +443,39 @@
         <div *ngIf="userError" class="alert alert-error">{{userError}}</div>
         <div class="form-row">
           <div class="form-group">
-            <label>Full Name *</label>
-            <input type="text" [(ngModel)]="userForm.name" placeholder="e.g. Alice Smith">
+            <label for="admin-u-name">Full Name *</label>
+            <input id="admin-u-name" type="text" [(ngModel)]="userForm.name" placeholder="e.g. Alice Smith">
           </div>
           <div class="form-group">
-            <label>Email *</label>
-            <input type="email" [(ngModel)]="userForm.email" placeholder="e.g. alice@school.edu">
+            <label for="admin-u-email">Email *</label>
+            <input id="admin-u-email" type="email" [(ngModel)]="userForm.email" placeholder="e.g. alice@school.edu">
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Role *</label>
-            <select [(ngModel)]="userForm.role">
+            <label for="admin-u-role">Role *</label>
+            <select id="admin-u-role" [(ngModel)]="userForm.role">
               <option *ngFor="let r of roles" [value]="r">{{r}}</option>
             </select>
           </div>
           <div class="form-group">
-            <label>Password {{editingUser ? '(leave blank to keep)' : '*'}}</label>
-            <input type="password" [(ngModel)]="userForm.password" placeholder="{{editingUser ? 'Leave blank to keep' : 'Min 8 chars'}}">
+            <label for="admin-u-pass">Password {{editingUser ? '(leave blank to keep)' : '*'}}</label>
+            <input id="admin-u-pass" type="password" [(ngModel)]="userForm.password" placeholder="{{editingUser ? 'Leave blank to keep' : 'Min 8 chars'}}">
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Class / Section</label>
-            <input type="text" [(ngModel)]="userForm.class_section" placeholder="e.g. 10-A">
+            <label for="admin-u-class">Class / Section</label>
+            <input id="admin-u-class" type="text" [(ngModel)]="userForm.class_section" placeholder="e.g. 10-A">
           </div>
           <div class="form-group">
-            <label>Subject</label>
-            <input type="text" [(ngModel)]="userForm.subject" placeholder="e.g. Science">
+            <label for="admin-u-subject">Subject</label>
+            <input id="admin-u-subject" type="text" [(ngModel)]="userForm.subject" placeholder="e.g. Science">
           </div>
         </div>
         <div class="form-group">
-          <label>Phone</label>
-          <input type="text" [(ngModel)]="userForm.phone" placeholder="e.g. +91 9876543210">
+          <label for="admin-u-phone">Phone</label>
+          <input id="admin-u-phone" type="text" [(ngModel)]="userForm.phone" placeholder="e.g. +91 9876543210">
         </div>
       </div>
       <div class="modal-footer">
@@ -471,34 +500,34 @@
         <div *ngIf="docTypeError" class="alert alert-error">{{docTypeError}}</div>
         <div class="form-row">
           <div class="form-group">
-            <label>Name *</label>
-            <input type="text" [(ngModel)]="docTypeForm.name" placeholder="e.g. Leave Application">
+            <label for="admin-dt-name">Name *</label>
+            <input id="admin-dt-name" type="text" [(ngModel)]="docTypeForm.name" placeholder="e.g. Leave Application">
           </div>
           <div class="form-group">
-            <label>Slug</label>
-            <input type="text" [(ngModel)]="docTypeForm.slug" placeholder="e.g. leave-application">
+            <label for="admin-dt-slug">Slug</label>
+            <input id="admin-dt-slug" type="text" [(ngModel)]="docTypeForm.slug" placeholder="e.g. leave-application">
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>SLA Hours</label>
-            <input type="number" [(ngModel)]="docTypeForm.sla_hours" min="1" placeholder="72">
+            <label for="admin-dt-sla">SLA Hours</label>
+            <input id="admin-dt-sla" type="number" [(ngModel)]="docTypeForm.sla_hours" min="1" placeholder="72">
           </div>
           <div class="form-group">
-            <label>Status</label>
-            <select [(ngModel)]="docTypeForm.active">
+            <label for="admin-dt-active">Status</label>
+            <select id="admin-dt-active" [(ngModel)]="docTypeForm.active">
               <option [ngValue]="true">Active</option>
               <option [ngValue]="false">Inactive</option>
             </select>
           </div>
         </div>
         <div class="form-group">
-          <label>Workflow Stages (JSON)</label>
-          <textarea [(ngModel)]="docTypeForm.workflow_stages" placeholder='[{"stage":1,"role":"Teacher","label":"Class Teacher"}]'></textarea>
+          <label for="admin-dt-stages">Workflow Stages (JSON)</label>
+          <textarea id="admin-dt-stages" [(ngModel)]="docTypeForm.workflow_stages" placeholder='[{"stage":1,"role":"Teacher","label":"Class Teacher"}]'></textarea>
         </div>
         <div class="form-group">
-          <label>Required Fields (JSON)</label>
-          <textarea [(ngModel)]="docTypeForm.required_fields" placeholder='["from_date","to_date","reason"]'></textarea>
+          <label for="admin-dt-fields">Required Fields (JSON)</label>
+          <textarea id="admin-dt-fields" [(ngModel)]="docTypeForm.required_fields" placeholder='["from_date","to_date","reason"]'></textarea>
         </div>
         <div class="form-group" style="flex-direction:row;align-items:center;gap:10px;">
           <input type="checkbox" id="cosign" [(ngModel)]="docTypeForm.needs_parent_cosign" style="width:16px;height:16px;">
@@ -526,16 +555,16 @@
       <div class="modal-body">
         <div *ngIf="schoolError" class="alert alert-error">{{schoolError}}</div>
         <div class="form-group">
-          <label>School Name *</label>
-          <input type="text" [(ngModel)]="schoolForm.name" placeholder="e.g. Greenwood High School">
+          <label for="admin-s-name">School Name *</label>
+          <input id="admin-s-name" type="text" [(ngModel)]="schoolForm.name" placeholder="e.g. Greenwood High School">
         </div>
         <div class="form-group">
-          <label>Slug</label>
-          <input type="text" [(ngModel)]="schoolForm.slug" placeholder="e.g. greenwood-high">
+          <label for="admin-s-slug">Slug</label>
+          <input id="admin-s-slug" type="text" [(ngModel)]="schoolForm.slug" placeholder="e.g. greenwood-high">
         </div>
         <div class="form-group">
-          <label>Settings (JSON)</label>
-          <textarea [(ngModel)]="schoolForm.settings" placeholder='{"notifications": true}'></textarea>
+          <label for="admin-s-settings">Settings (JSON)</label>
+          <textarea id="admin-s-settings" [(ngModel)]="schoolForm.settings" placeholder='{"notifications": true}'></textarea>
         </div>
       </div>
       <div class="modal-footer">

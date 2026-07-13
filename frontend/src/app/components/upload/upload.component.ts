@@ -24,6 +24,7 @@ export class UploadComponent implements OnInit {
   priority: string = 'Normal';
   direction: string = 'Inward';
   error: string = '';
+  loading: boolean = false;
 
   constructor(private api: ApiService, private auth: AuthService, private router: Router) {}
 
@@ -90,12 +91,16 @@ export class UploadComponent implements OnInit {
     formData.append('priority', this.priority);
     formData.append('direction', this.direction);
 
+    this.loading = true;
     this.api.uploadDocument(formData).subscribe({
       next: () => {
+        this.loading = false;
         this.router.navigate(['/dashboard']);
       },
-      error: () => {
-        this.error = 'Failed to upload document.';
+      error: (err) => {
+        console.error('Failed to upload:', err);
+        this.loading = false;
+        this.error = 'Failed to upload document. Please try again.';
       }
     });
   }

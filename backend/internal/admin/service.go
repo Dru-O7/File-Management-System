@@ -88,6 +88,29 @@ func (s *service) UpdateUser(id uuid.UUID, req UpdateUserRequest) (*UserResponse
 		return nil, errors.New("user not found")
 	}
 
+	// If changing role or email, block if user is referenced in document workflows or logs
+	roleChanged := req.Role != "" && req.Role != u.Role
+	emailChanged := req.Email != "" && req.Email != u.Email
+	if roleChanged || emailChanged {
+		repoImpl, ok := s.repo.(*repository)
+		if ok {
+			var count int64
+			repoImpl.db.Model(&models.Document{}).
+				Where("uploader_id = ? OR current_owner_id = ? OR referral_owner_id = ?", id, id, id).
+				Count(&count)
+			if count > 0 {
+				return nil, errors.New("cannot change role or email of a user with active or historical documents")
+			}
+
+			repoImpl.db.Model(&models.WorkflowHistory{}).
+				Where("actor_id = ? OR target_id = ?", id, id).
+				Count(&count)
+			if count > 0 {
+				return nil, errors.New("cannot change role or email of a user with workflow history logs")
+			}
+		}
+	}
+
 	if req.Name != "" {
 		u.Name = req.Name
 	}
@@ -131,6 +154,45 @@ func (s *service) UpdateUser(id uuid.UUID, req UpdateUserRequest) (*UserResponse
 }
 
 func (s *service) DeleteUser(id uuid.UUID) error {
+	repoImpl, ok := s.repo.(*repository)
+	if !ok {
+		return errors.New("invalid repository type")
+	}
+
+	var count int64
+
+	// 1. Check Document table
+	repoImpl.db.Model(&models.Document{}).
+		Where("uploader_id = ? OR current_owner_id = ? OR referral_owner_id = ?", id, id, id).
+		Count(&count)
+	if count > 0 {
+		return errors.New("cannot delete user: they have active or historical documents")
+	}
+
+	// 2. Check WorkflowHistory table
+	repoImpl.db.Model(&models.WorkflowHistory{}).
+		Where("actor_id = ? OR target_id = ?", id, id).
+		Count(&count)
+	if count > 0 {
+		return errors.New("cannot delete user: they are referenced in workflow history logs")
+	}
+
+	// 3. Check DocumentPendingApprover table
+	repoImpl.db.Model(&models.DocumentPendingApprover{}).
+		Where("user_id = ?", id).
+		Count(&count)
+	if count > 0 {
+		return errors.New("cannot delete user: they are a pending workflow approver")
+	}
+
+	// 4. Check Attachment table
+	repoImpl.db.Model(&models.Attachment{}).
+		Where("uploaded_by = ?", id).
+		Count(&count)
+	if count > 0 {
+		return errors.New("cannot delete user: they uploaded files enclosed in documents")
+	}
+
 	return s.repo.DeleteUser(id)
 }
 
@@ -187,6 +249,20 @@ func (s *service) UpdateDocumentType(id uuid.UUID, req UpdateDocTypeRequest) (*D
 		return nil, errors.New("document type not found")
 	}
 
+	// If changing stages/fields, block if any active documents use this type
+	if req.WorkflowStages != "" || req.RequiredFields != "" {
+		repoImpl, ok := s.repo.(*repository)
+		if ok {
+			var activeCount int64
+			repoImpl.db.Model(&models.Document{}).
+				Where("document_type_id = ? AND status NOT IN ?", id, []string{string(models.StatusClosed), string(models.StatusArchived), string(models.StatusRejected)}).
+				Count(&activeCount)
+			if activeCount > 0 {
+				return nil, errors.New("cannot edit workflow stages or required fields: active documents exist of this type")
+			}
+		}
+	}
+
 	if req.Name != "" {
 		dt.Name = req.Name
 	}
@@ -223,6 +299,19 @@ func (s *service) UpdateDocumentType(id uuid.UUID, req UpdateDocTypeRequest) (*D
 }
 
 func (s *service) DeleteDocumentType(id uuid.UUID) error {
+	repoImpl, ok := s.repo.(*repository)
+	if !ok {
+		return errors.New("invalid repository type")
+	}
+
+	var count int64
+	repoImpl.db.Model(&models.Document{}).
+		Where("document_type_id = ?", id).
+		Count(&count)
+	if count > 0 {
+		return errors.New("cannot delete document type: it is referenced by existing documents")
+	}
+
 	return s.repo.DeleteDocumentType(id)
 }
 

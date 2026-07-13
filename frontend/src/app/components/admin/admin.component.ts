@@ -16,6 +16,10 @@ export class AdminComponent implements OnInit {
   currentUser: any = {};
   activeSection: string = 'overview';
   isSuperAdmin: boolean = false;  // true when at /superadmin
+  loadingStats: boolean = false;
+  loadingUsers: boolean = false;
+  loadingDocTypes: boolean = false;
+  loadingSchools: boolean = false;
 
   // Stats
   stats: any = {};
@@ -61,7 +65,8 @@ export class AdminComponent implements OnInit {
 
   ngOnInit() {
     this.currentUser = this.auth.getCurrentUser() || {};
-    this.isSuperAdmin = (this.currentUser.Role === 'Admin' || this.currentUser.Role === 'SuperAdmin');
+    const role = this.currentUser.Role || this.currentUser.role;
+    this.isSuperAdmin = (role === 'Admin' || role === 'SuperAdmin');
     this.loadStats();
     this.loadUsers();
     this.loadDocTypes();
@@ -93,21 +98,27 @@ export class AdminComponent implements OnInit {
   // ── Stats ──────────────────────────────────────────────────────────────────
 
   loadStats() {
+    this.loadingStats = true;
     this.api.getAdminStats().subscribe({
-      next: (data) => this.stats = data,
-      error: () => {}
+      next: (data) => {
+        this.stats = data;
+        this.loadingStats = false;
+      },
+      error: () => { this.loadingStats = false; }
     });
   }
 
   // ── Users ──────────────────────────────────────────────────────────────────
 
   loadUsers() {
+    this.loadingUsers = true;
     this.api.getAdminUsers().subscribe({
       next: (data) => {
         this.users = data || [];
         this.applyUserFilter();
+        this.loadingUsers = false;
       },
-      error: () => {}
+      error: () => { this.loadingUsers = false; }
     });
   }
 
@@ -143,11 +154,27 @@ export class AdminComponent implements OnInit {
 
   saveUser() {
     this.userError = '';
-    if (!this.userForm.name || !this.userForm.email) {
+    const nameTrimmed = this.userForm.name.trim();
+    const emailTrimmed = this.userForm.email.trim().toLowerCase();
+
+    if (!nameTrimmed || !emailTrimmed) {
       this.userError = 'Name and email are required.';
       return;
     }
-    const payload = { ...this.userForm };
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailTrimmed)) {
+      this.userError = 'Please enter a valid email address.';
+      return;
+    }
+
+    const payload = { ...this.userForm, name: nameTrimmed, email: emailTrimmed };
+    
+    // Default password to "password" if blank for a new user creation
+    if (!this.editingUser && !payload.password) {
+      payload.password = 'password';
+    }
+
     if (this.editingUser) {
       this.api.adminUpdateUser(this.editingUser.ID, payload).subscribe({
         next: () => {
@@ -205,12 +232,14 @@ export class AdminComponent implements OnInit {
   // ── Document Types ─────────────────────────────────────────────────────────
 
   loadDocTypes() {
+    this.loadingDocTypes = true;
     this.api.getAdminDocumentTypes().subscribe({
       next: (data) => {
         this.docTypes = data || [];
         this.applyDocTypeFilter();
+        this.loadingDocTypes = false;
       },
-      error: () => {}
+      error: () => { this.loadingDocTypes = false; }
     });
   }
 
@@ -253,6 +282,34 @@ export class AdminComponent implements OnInit {
       this.docTypeError = 'Document type name is required.';
       return;
     }
+
+    // Validate JSON input structures
+    try {
+      if (this.docTypeForm.workflow_stages) {
+        const parsed = JSON.parse(this.docTypeForm.workflow_stages);
+        if (!Array.isArray(parsed)) {
+          this.docTypeError = 'Workflow Stages must be a valid JSON array, e.g. [{"stage":1,"role":"Teacher","label":"Teacher"}].';
+          return;
+        }
+      }
+    } catch (e) {
+      this.docTypeError = 'Workflow Stages is not valid JSON.';
+      return;
+    }
+
+    try {
+      if (this.docTypeForm.required_fields) {
+        const parsed = JSON.parse(this.docTypeForm.required_fields);
+        if (!Array.isArray(parsed)) {
+          this.docTypeError = 'Required Fields must be a valid JSON array, e.g. ["from_date","reason"].';
+          return;
+        }
+      }
+    } catch (e) {
+      this.docTypeError = 'Required Fields is not valid JSON.';
+      return;
+    }
+
     if (!this.docTypeForm.slug) {
       this.docTypeForm.slug = this.docTypeForm.name.toLowerCase().replace(/\s+/g, '-');
     }
@@ -302,9 +359,13 @@ export class AdminComponent implements OnInit {
   // ── Schools ────────────────────────────────────────────────────────────────
 
   loadSchools() {
+    this.loadingSchools = true;
     this.api.getAdminSchools().subscribe({
-      next: (data) => { this.schools = data || []; },
-      error: () => {}
+      next: (data) => {
+        this.schools = data || [];
+        this.loadingSchools = false;
+      },
+      error: () => { this.loadingSchools = false; }
     });
   }
 
