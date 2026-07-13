@@ -68,10 +68,13 @@ func (r *repository) ListByUser(userID uuid.UUID, search string) ([]models.Docum
 		}
 
 	case "Principal":
-		// Principal can see everything within the school
-		if user.SchoolID != nil {
-			query = query.Where("school_id = ?", *user.SchoolID)
-		}
+		// Principal can see:
+		// 1. Documents they uploaded/own
+		// 2. Documents where they are in history
+		query = query.Where(
+			"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?)",
+			userID, userID, userID,
+		)
 
 	case "Teacher":
 		// Teacher can see:
