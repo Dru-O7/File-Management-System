@@ -16,7 +16,8 @@ export class UploadComponent implements OnInit {
   users: any[] = [];
   documentTypes: any[] = [];
   selectedFile: File | null = null;
-  targetOwnerId: string = '';
+  approverChain: any[] = [];
+  selectedApproverId: string = '';
   title: string = '';
   description: string = '';
   category: string = 'Assignment';
@@ -25,8 +26,8 @@ export class UploadComponent implements OnInit {
   error: string = '';
   loading: boolean = false;
 
-  targetClass: string = 'All';
-  availableClasses: string[] = ['All', '10-A', '10-B', '10-C', '10-D'];
+  targetClasses: string[] = ['All'];
+  availableClasses: string[] = ['All', '10-A', '10-B', '10-C', '10-D', '11-Science', '12-Science'];
 
   constructor(
     private api: ApiService, 
@@ -72,8 +73,8 @@ export class UploadComponent implements OnInit {
       const isTeacher = currentUser.Role === 'Teacher' || currentUser.role === 'Teacher';
       if (isTeacher) {
         const cSec = currentUser.ClassSection || currentUser.class_section || '10-A';
-        this.availableClasses = [cSec];
-        this.targetClass = cSec;
+        // Allow teachers to broadcast to multiple classes by keeping all available, but default to theirs
+        this.targetClasses = [cSec];
       }
     }
 
@@ -82,7 +83,7 @@ export class UploadComponent implements OnInit {
         const currentId = this.auth.getCurrentUser()?.ID || this.auth.getCurrentUser()?.id;
         this.users = res.filter(u => (u.id || u.ID) !== currentId && u.Role !== 'Student' && u.role !== 'Student');
         if (this.users.length > 0) {
-          this.targetOwnerId = this.users[0].id || this.users[0].ID;
+          this.selectedApproverId = this.users[0].id || this.users[0].ID;
         }
       },
       error: (err) => {
@@ -102,13 +103,26 @@ export class UploadComponent implements OnInit {
     }
   }
 
+  addToChain() {
+    if (this.selectedApproverId) {
+      const user = this.users.find(u => (u.id || u.ID) === this.selectedApproverId);
+      if (user && !this.approverChain.find(a => (a.id || a.ID) === this.selectedApproverId)) {
+        this.approverChain.push(user);
+      }
+    }
+  }
+
+  removeFromChain(index: number) {
+    this.approverChain.splice(index, 1);
+  }
+
   upload() {
-    if (!this.selectedFile) {
+    if (!this.selectedFile && this.category !== 'Assignment Broadcast') {
       this.error = 'Please select a file.';
       return;
     }
-    if (!this.targetOwnerId) {
-      this.error = 'Please select an approver.';
+    if (this.category !== 'Circular' && this.category !== 'Assignment Broadcast' && this.approverChain.length === 0) {
+      this.error = 'Please add at least one approver to the chain.';
       return;
     }
 
@@ -117,10 +131,11 @@ export class UploadComponent implements OnInit {
     formData.append('file', this.selectedFile);
     formData.append('uploader_id', currentUser.ID || currentUser.id);
     
-    if (this.category !== 'Circular') {
-      formData.append('target_owner_id', this.targetOwnerId);
+    if (this.category !== 'Circular' && this.category !== 'Assignment Broadcast') {
+      const chainIds = this.approverChain.map(a => a.id || a.ID).join(',');
+      formData.append('target_owner_ids', chainIds);
     }
-    formData.append('target_class', this.targetClass);
+    formData.append('target_class', this.targetClasses.join(','));
 
     formData.append('title', this.title);
     formData.append('description', this.description);

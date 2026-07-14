@@ -46,6 +46,10 @@ export class ApiService {
     return this.http.get<any>(`${this.apiUrl}/documents/${id}`);
   }
 
+  getSubmissions(id: string) {
+    return this.http.get<any[]>(`${this.apiUrl}/documents/${id}/submissions`);
+  }
+
   uploadDocument(formData: FormData) {
     return this.http.post<any>(`${this.apiUrl}/documents`, formData);
   }

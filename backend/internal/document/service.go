@@ -34,8 +34,9 @@ import (
 )
 
 type Service interface {
-	Upload(uploaderID, targetOwnerID uuid.UUID, title, description, category, tags, priority, direction, targetClass string, fileHeader *multipart.FileHeader) (*DocumentResponse, error)
+	Upload(uploaderID uuid.UUID, targetOwnerIDs []uuid.UUID, title, description, category, tags, priority, direction, targetClass string, refDocID *uuid.UUID, fileHeader *multipart.FileHeader) (*DocumentResponse, error)
 	List(userID uuid.UUID, search string) ([]DocumentResponse, error)
+	GetSubmissions(docID, authenticatedUserID uuid.UUID) ([]DocumentResponse, error)
 	GetDetails(docID, authenticatedUserID uuid.UUID) (*DocumentDetailsResponse, error)
 	GetFilePathForDownload(docID, authenticatedUserID uuid.UUID) (string, error)
 	GetPreviewPDFPath(docID, authenticatedUserID uuid.UUID) (string, bool, error)
@@ -100,16 +101,28 @@ func (s *service) saveFile(fileHeader *multipart.FileHeader, prefix string) (str
 	return safeFilename, nil
 }
 
-func (s *service) Upload(uploaderID, targetOwnerID uuid.UUID, title, description, category, tags, priority, direction, targetClass string, fileHeader *multipart.FileHeader) (*DocumentResponse, error) {
-	processedFilename, err := s.saveFile(fileHeader, "")
-	if err != nil {
-		return nil, err
+func (s *service) Upload(uploaderID uuid.UUID, targetOwnerIDs []uuid.UUID, title, description, category, tags, priority, direction, targetClass string, refDocID *uuid.UUID, fileHeader *multipart.FileHeader) (*DocumentResponse, error) {
+	var processedFilename string
+	var destPath string
+	var displayFilename string
+	var err error
+
+	if fileHeader != nil {
+		processedFilename, err = s.saveFile(fileHeader, "")
+		if err != nil {
+			return nil, err
+		}
+		destPath = filepath.Join(s.uploadsDir, processedFilename)
+		displayFilename = fileHeader.Filename
+	} else if category != "Assignment Broadcast" {
+		return nil, errors.New("file is required")
 	}
-	destPath := filepath.Join(s.uploadsDir, processedFilename)
 
 	// Backup original clean (unsigned) file
-	if err := copyFile(destPath, destPath+".original"); err != nil {
-		log.Printf("Warning: failed to back up original file: %v", err)
+	if destPath != "" {
+		if err := copyFile(destPath, destPath+".original"); err != nil {
+			log.Printf("Warning: failed to back up original file: %v", err)
+		}
 	}
 
 	uniqueNum := fmt.Sprintf("DOC-%d", time.Now().UnixNano()/1e6)
@@ -126,22 +139,28 @@ func (s *service) Upload(uploaderID, targetOwnerID uuid.UUID, title, description
 	}
 	schoolID = uploaderUser.SchoolID
 
-	var targetUser models.User
-	assignedOwnerID := targetOwnerID
+	var assignedOwnerID uuid.UUID
+	if len(targetOwnerIDs) > 0 {
+		assignedOwnerID = targetOwnerIDs[0]
+	}
 	docStatus := models.StatusPendingApproval
 
-	if category == "Circular" {
+	if category == "Circular" || category == "Assignment Broadcast" {
 		if uploaderUser.Role == "Student" || uploaderUser.Role == "Parent" {
-			return nil, errors.New("only teachers and principals can upload circulars")
+			return nil, errors.New("only teachers and principals can upload circulars or broadcasts")
 		}
 		assignedOwnerID = uploaderID
 		docStatus = models.StatusApproved // Immediately visible
 	} else {
-		if err := s.repo.(*repository).db.First(&targetUser, "id = ?", targetOwnerID).Error; err != nil {
-			return nil, errors.New("approver not found")
-		}
-		if targetUser.Role == "Admin" || targetUser.Role == "SuperAdmin" || targetUser.Role == "Parent" {
-			return nil, errors.New("cannot assign documents to admins or parents")
+		// Validate all users in the chain
+		for _, id := range targetOwnerIDs {
+			var u models.User
+			if err := s.repo.(*repository).db.First(&u, "id = ?", id).Error; err != nil {
+				return nil, errors.New("one or more approvers not found in chain")
+			}
+			if u.Role == "Admin" || u.Role == "SuperAdmin" || u.Role == "Parent" {
+				return nil, errors.New("cannot assign documents to admins or parents")
+			}
 		}
 	}
 
@@ -154,7 +173,9 @@ func (s *service) Upload(uploaderID, targetOwnerID uuid.UUID, title, description
 		}
 	}
 
-	displayFilename := fileHeader.Filename
+	if displayFilename == "" {
+		displayFilename = "No Attachment"
+	}
 
 	docID := uuid.New()
 	doc := &models.Document{
@@ -174,6 +195,7 @@ func (s *service) Upload(uploaderID, targetOwnerID uuid.UUID, title, description
 		Priority:       fallbackString(priority, "Normal"),
 		Direction:      fallbackString(direction, "Inward"),
 		TargetClass:    targetClass,
+		RefDocumentID:  refDocID,
 		AssignedAt:     time.Now(),
 		Version:        1,
 		CurrentStage:   1,
@@ -189,16 +211,20 @@ func (s *service) Upload(uploaderID, targetOwnerID uuid.UUID, title, description
 		return nil, err
 	}
 
-	// Setup initial pending approver records
-	pendingApprover := &models.DocumentPendingApprover{
-		ID:         uuid.New(),
-		DocumentID: docID,
-		UserID:     assignedOwnerID,
-		Stage:      1,
-		Status:     "Pending",
-	}
-	if err := s.repo.CreatePendingApprover(pendingApprover); err != nil {
-		log.Printf("Warning: Failed to create pending approver: %v", err)
+	// Setup pending approver records for the entire chain
+	if category != "Circular" && category != "Assignment Broadcast" {
+		for i, id := range targetOwnerIDs {
+			pendingApprover := &models.DocumentPendingApprover{
+				ID:         uuid.New(),
+				DocumentID: docID,
+				UserID:     id,
+				Stage:      i + 1,
+				Status:     "Pending",
+			}
+			if err := s.repo.CreatePendingApprover(pendingApprover); err != nil {
+				log.Printf("Warning: Failed to create pending approver: %v", err)
+			}
+		}
 	}
 
 	// Queue notifications asynchronously in the DB
@@ -287,6 +313,27 @@ func (s *service) GetDetails(docID, authenticatedUserID uuid.UUID) (*DocumentDet
 	}, nil
 }
 
+func (s *service) GetSubmissions(docID, authenticatedUserID uuid.UUID) ([]DocumentResponse, error) {
+	doc, err := s.repo.GetByID(docID)
+	if err != nil {
+		return nil, errors.New("document not found")
+	}
+	if err := s.authorizeDocAccess(doc, authenticatedUserID); err != nil {
+		return nil, err
+	}
+
+	submissions, err := s.repo.GetSubmissionsByRefDocID(docID)
+	if err != nil {
+		return nil, err
+	}
+	
+	responses := make([]DocumentResponse, len(submissions))
+	for i, sub := range submissions {
+		responses[i] = *s.toDocumentResponse(&sub)
+	}
+	return responses, nil
+}
+
 func (s *service) GetFilePathForDownload(docID, authenticatedUserID uuid.UUID) (string, error) {
 	doc, err := s.repo.GetByID(docID)
 	if err != nil {
@@ -336,7 +383,11 @@ func (s *service) GetPreviewPDFPath(docID, authenticatedUserID uuid.UUID) (strin
 	// Attempt to use LibreOffice to convert
 	libreOfficePath := "/Applications/LibreOffice.app/Contents/MacOS/soffice"
 	if _, err := os.Stat(libreOfficePath); os.IsNotExist(err) {
-		libreOfficePath = "soffice" // Fallback to PATH
+		if _, err := os.Stat("C:\\Program Files\\LibreOffice\\program\\soffice.exe"); err == nil {
+			libreOfficePath = "C:\\Program Files\\LibreOffice\\program\\soffice.exe"
+		} else {
+			libreOfficePath = "soffice" // Fallback to PATH
+		}
 	}
 
 	// Run conversion command: soffice --headless --convert-to pdf --outdir <tempDir> <doc.FilePath>
@@ -601,36 +652,53 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 		// Mark current approver as done
 		s.repo.MarkApproverStatus(doc.ID, authenticatedUserID, doc.CurrentStage, "Approved")
 
-		// If a DocumentType and stages are defined, resolve if we need to advance stages
-		if doc.DocumentTypeID != nil {
-			dt, errDT := s.repo.GetDocumentTypeByID(*doc.DocumentTypeID)
-			if errDT == nil {
-				if req.TargetID != nil && *req.TargetID != authenticatedUserID {
-					var targetUser models.User
-					if err := s.repo.(*repository).db.First(&targetUser, "id = ?", *req.TargetID).Error; err != nil {
-						return nil, errors.New("next stage approver not found")
-					}
-					if targetUser.Role == "Admin" || targetUser.Role == "SuperAdmin" || targetUser.Role == "Parent" {
-						return nil, errors.New("cannot assign next workflow stage to admins or parents")
-					}
-					newStatus = models.StatusPendingApproval
-					nextOwnerID = *req.TargetID
-					doc.CurrentStage = doc.CurrentStage + 1
+		// Check if there is a next approver in the chain
+		nextApprover, errStage := s.repo.GetPendingApproverByStage(doc.ID, doc.CurrentStage+1)
+		if errStage == nil && nextApprover != nil {
+			// There is a next stage in the pre-defined chain
+			newStatus = models.StatusPendingApproval
+			nextOwnerID = nextApprover.UserID
+			doc.CurrentStage = doc.CurrentStage + 1
+			wfAction = models.ActionApproved
 
-					// Register next stage pending approver
-					nextApprover := &models.DocumentPendingApprover{
-						ID:         uuid.New(),
-						DocumentID: doc.ID,
-						UserID:     *req.TargetID,
-						Stage:      doc.CurrentStage,
-						Status:     "Pending",
-					}
-					s.repo.CreatePendingApprover(nextApprover)
-
-					// Set new SLA deadline
+			if doc.DocumentTypeID != nil {
+				if dt, errDT := s.repo.GetDocumentTypeByID(*doc.DocumentTypeID); errDT == nil {
 					deadline := time.Now().Add(time.Duration(dt.SlaHours) * time.Hour)
 					doc.SlaDeadline = &deadline
-					wfAction = models.ActionApproved // keep approved as action name
+				}
+			}
+		} else {
+			// If a DocumentType and stages are defined, resolve if we need to advance stages (legacy/manual forward logic)
+			if doc.DocumentTypeID != nil {
+				dt, errDT := s.repo.GetDocumentTypeByID(*doc.DocumentTypeID)
+				if errDT == nil {
+					if req.TargetID != nil && *req.TargetID != authenticatedUserID {
+						var targetUser models.User
+						if err := s.repo.(*repository).db.First(&targetUser, "id = ?", *req.TargetID).Error; err != nil {
+							return nil, errors.New("next stage approver not found")
+						}
+						if targetUser.Role == "Admin" || targetUser.Role == "SuperAdmin" || targetUser.Role == "Parent" {
+							return nil, errors.New("cannot assign next workflow stage to admins or parents")
+						}
+						newStatus = models.StatusPendingApproval
+						nextOwnerID = *req.TargetID
+						doc.CurrentStage = doc.CurrentStage + 1
+
+						// Register next stage pending approver
+						nextApproverRecord := &models.DocumentPendingApprover{
+							ID:         uuid.New(),
+							DocumentID: doc.ID,
+							UserID:     *req.TargetID,
+							Stage:      doc.CurrentStage,
+							Status:     "Pending",
+						}
+						s.repo.CreatePendingApprover(nextApproverRecord)
+
+						// Set new SLA deadline
+						deadline := time.Now().Add(time.Duration(dt.SlaHours) * time.Hour)
+						doc.SlaDeadline = &deadline
+						wfAction = models.ActionApproved // keep approved as action name
+					}
 				}
 			}
 		}
@@ -809,23 +877,40 @@ func (s *service) authorizeDocAccess(doc *models.Document, userID uuid.UUID) err
 		return errors.New("you are not authorized to view this document (outside school scope)")
 	}
 
-	// Circular access
-	if doc.Category == "Circular" {
+	// Circular or Broadcast access
+	if doc.Category == "Circular" || doc.Category == "Assignment Broadcast" {
 		if doc.TargetClass == "All" {
 			return nil
 		}
+
+		targetClasses := strings.Split(doc.TargetClass, ",")
+		for i := range targetClasses {
+			targetClasses[i] = strings.TrimSpace(targetClasses[i])
+		}
+
+		classMatches := func(userClass string) bool {
+			for _, tc := range targetClasses {
+				if tc == userClass {
+					return true
+				}
+			}
+			return false
+		}
+
 		if user.Role == "Teacher" || user.Role == "Student" {
-			if doc.TargetClass == user.ClassSection {
+			if classMatches(user.ClassSection) {
 				return nil
 			}
 		}
 		if user.Role == "Parent" {
-			var count int64
+			var childrenClasses []string
 			s.repo.(*repository).db.Model(&models.User{}).
-				Where("id IN (SELECT child_id FROM parent_children WHERE parent_id = ?) AND class_section = ?", userID, doc.TargetClass).
-				Count(&count)
-			if count > 0 {
-				return nil
+				Where("id IN (SELECT child_id FROM parent_children WHERE parent_id = ?)", userID).
+				Pluck("class_section", &childrenClasses)
+			for _, childClass := range childrenClasses {
+				if classMatches(childClass) {
+					return nil
+				}
 			}
 		}
 	}

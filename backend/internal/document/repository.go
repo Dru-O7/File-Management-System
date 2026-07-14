@@ -22,8 +22,10 @@ type Repository interface {
 	GetDocumentTypeBySlug(schoolID uuid.UUID, slug string) (*models.DocumentType, error)
 	CreatePendingApprover(approver *models.DocumentPendingApprover) error
 	GetPendingApprovers(docID uuid.UUID, stage int) ([]models.DocumentPendingApprover, error)
+	GetPendingApproverByStage(docID uuid.UUID, stage int) (*models.DocumentPendingApprover, error)
 	MarkApproverStatus(docID, userID uuid.UUID, stage int, status string) error
 	GetParentByStudent(studentID uuid.UUID) (*models.User, error)
+	GetSubmissionsByRefDocID(refDocID uuid.UUID) ([]models.Document, error)
 }
 
 type repository struct {
@@ -187,6 +189,24 @@ func (r *repository) GetPendingApprovers(docID uuid.UUID, stage int) ([]models.D
 		return nil, err
 	}
 	return approvers, nil
+}
+
+func (r *repository) GetPendingApproverByStage(docID uuid.UUID, stage int) (*models.DocumentPendingApprover, error) {
+	var approver models.DocumentPendingApprover
+	err := r.db.Preload("User").Where("document_id = ? AND stage = ?", docID, stage).First(&approver).Error
+	if err != nil {
+		return nil, err
+	}
+	return &approver, nil
+}
+
+func (r *repository) GetSubmissionsByRefDocID(refDocID uuid.UUID) ([]models.Document, error) {
+	var submissions []models.Document
+	err := r.db.Preload("Uploader").Preload("CurrentOwner").Where("ref_document_id = ?", refDocID).Order("created_at desc").Find(&submissions).Error
+	if err != nil {
+		return nil, err
+	}
+	return submissions, nil
 }
 
 func (r *repository) MarkApproverStatus(docID, userID uuid.UUID, stage int, status string) error {

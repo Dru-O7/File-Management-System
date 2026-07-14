@@ -52,13 +52,24 @@ func (h *Handler) Upload(c echo.Context) error {
 
 	category := c.FormValue("category")
 
-	targetOwnerIDStr := c.FormValue("target_owner_id")
-	var targetOwnerID uuid.UUID
+	targetOwnerIDsStr := c.FormValue("target_owner_ids")
+	var targetOwnerIDs []uuid.UUID
 	var err error
-	if category != "Circular" {
-		targetOwnerID, err = uuid.Parse(targetOwnerIDStr)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid target owner ID"})
+	if category != "Circular" && category != "Assignment Broadcast" {
+		ids := strings.Split(targetOwnerIDsStr, ",")
+		for _, idStr := range ids {
+			idStr = strings.TrimSpace(idStr)
+			if idStr == "" {
+				continue
+			}
+			id, parseErr := uuid.Parse(idStr)
+			if parseErr != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid target owner ID in chain"})
+			}
+			targetOwnerIDs = append(targetOwnerIDs, id)
+		}
+		if len(targetOwnerIDs) == 0 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "At least one target owner is required"})
 		}
 	}
 
@@ -68,13 +79,22 @@ func (h *Handler) Upload(c echo.Context) error {
 	priority := c.FormValue("priority")
 	direction := c.FormValue("direction")
 	targetClass := c.FormValue("target_class")
+	
+	refDocIDStr := c.FormValue("ref_document_id")
+	var refDocID *uuid.UUID
+	if refDocIDStr != "" {
+		id, parseErr := uuid.Parse(refDocIDStr)
+		if parseErr == nil {
+			refDocID = &id
+		}
+	}
 
 	fileHeader, err := c.FormFile("file")
-	if err != nil {
+	if err != nil && category != "Assignment Broadcast" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "File is required"})
 	}
 
-	res, err := h.service.Upload(uploaderID, targetOwnerID, title, description, category, tags, priority, direction, targetClass, fileHeader)
+	res, err := h.service.Upload(uploaderID, targetOwnerIDs, title, description, category, tags, priority, direction, targetClass, refDocID, fileHeader)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -109,6 +129,27 @@ func (h *Handler) GetDetails(c echo.Context) error {
 	res, err := h.service.GetDetails(docID, userID)
 	if err != nil {
 		if err.Error() == "you are not authorized to view or access this document" {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) GetSubmissions(c echo.Context) error {
+	authenticatedUserIDStr := c.Get("user_id").(string)
+	userID, _ := uuid.Parse(authenticatedUserIDStr)
+
+	idStr := c.Param("id")
+	docID, err := uuid.Parse(idStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid document ID"})
+	}
+
+	res, err := h.service.GetSubmissions(docID, userID)
+	if err != nil {
+		if err.Error() == "you are not authorized to view this document (outside school scope)" {
 			return c.JSON(http.StatusForbidden, map[string]string{"error": err.Error()})
 		}
 		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
