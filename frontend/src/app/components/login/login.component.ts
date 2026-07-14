@@ -17,6 +17,7 @@ export class LoginComponent {
   password: string = 'password';
   error: string = '';
   loading: boolean = false;
+  activePortal: string = 'student';
 
   constructor(private api: ApiService, private auth: AuthService, private router: Router) {}
 

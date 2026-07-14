@@ -1,13 +1,14 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 @source "./app/**/*.html";
 @source "./app/**/*.ts";
 
 :root {
   /* Color Palette (Deep Academic Theme) */
-  --primary: #4f46e5;       /* Indigo */
-  --primary-hover: #4338ca;
-  --primary-light: rgba(79, 70, 229, 0.08);
-  --primary-active: #4f46e5;
+  --primary: #1d4ed8;       /* Blue */
+  --primary-hover: #1e40af;
+  --primary-light: rgba(29, 78, 216, 0.08);
+  --primary-active: #1d4ed8;
   --secondary: #0f172a;     /* Slate Dark */
   --accent: #10b981;        /* Emerald */
   --accent-hover: #059669;
@@ -35,10 +36,10 @@
 }
 
 .dark {
-  --primary: #818cf8;
-  --primary-hover: #6366f1;
-  --primary-light: rgba(129, 140, 248, 0.15);
-  --primary-active: #a5b4fc;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-light: rgba(59, 130, 246, 0.15);
+  --primary-active: #60a5fa;
   --background: #090d16;
   --surface: #111827;
   --border: #1f2937;

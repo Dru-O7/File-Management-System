@@ -169,21 +169,20 @@
           </div>
         </div>
 
-        <!-- Left Search bar (Desktop & Medium screen) -->
-        <div class="hidden sm:block flex-1 max-w-xs md:max-w-md">
-          <div class="relative w-full">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg class="h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <!-- Padding inline override style to fix overlaps -->
-            <input type="text" 
-                   class="block w-full pr-3 py-1.8 text-xs bg-[var(--background)] border border-[var(--border)] rounded-lg focus:outline-none focus:bg-[var(--surface)] focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-[var(--text-primary)] placeholder-slate-450 dark:placeholder-slate-500" 
-                   style="padding-left: 2.5rem;"
-                   placeholder="Search file, title, tags..."
-                   [ngModel]="searchQuery"
-                   (input)="onSearchInput($event)">
+        <!-- Left Search bar (Premium SaaS Spotlight Style) -->
+        <div class="hidden sm:block flex-1 max-w-xs md:max-w-md relative group">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[var(--primary)] transition-colors duration-200">
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input type="text" 
+                 class="block w-full pl-10 pr-12 py-2.5 text-xs bg-[var(--background)] border border-[var(--border)] rounded-xl focus:outline-none focus:bg-[var(--surface)] focus:ring-4 focus:ring-[var(--primary)]/10 focus:border-[var(--primary)] text-[var(--text-primary)] placeholder-slate-450 dark:placeholder-slate-500 transition-all duration-200 shadow-sm" 
+                 placeholder="Search file, title, tags..."
+                 [ngModel]="searchQuery"
+                 (input)="onSearchInput($event)">
+          <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+            <kbd class="hidden md:inline-block px-1.5 py-0.5 text-[9px] font-bold text-slate-400 bg-[var(--surface)] border border-[var(--border)] rounded-md shadow-xs uppercase">⌘K</kbd>
           </div>
         </div>
 
@@ -394,7 +393,7 @@
 
 <!-- Guest Layout for Login / Register -->
 <ng-template #guestLayout>
-  <div class="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+  <div class="min-h-screen bg-[var(--background)]">
     <router-outlet></router-outlet>
   </div>
 </ng-template>
