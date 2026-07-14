@@ -128,7 +128,9 @@ export class UploadComponent implements OnInit {
 
     const currentUser = this.auth.getCurrentUser();
     const formData = new FormData();
-    formData.append('file', this.selectedFile);
+    if (this.selectedFile) {
+      formData.append('file', this.selectedFile);
+    }
     formData.append('uploader_id', currentUser.ID || currentUser.id);
     
     if (this.category !== 'Circular' && this.category !== 'Assignment Broadcast') {

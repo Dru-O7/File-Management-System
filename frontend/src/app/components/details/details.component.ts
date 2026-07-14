@@ -105,29 +105,20 @@ export class DetailsComponent implements OnInit {
         }
 
         if (this.document.FilePath) {
-          this.api.previewDocumentFile(this.document.ID).subscribe({
-          next: (blob: Blob) => {
-            const objectUrl = URL.createObjectURL(blob);
-            this.safePdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(objectUrl);
-          },
-          error: (err) => {
-            console.error('Failed to load PDF preview:', err);
+          const token = this.auth.getToken();
+          let url = '';
+          if (this.isPdf(this.document.Filename)) {
+            url = `http://localhost:8080/api/documents/${this.document.ID}/download?token=${token}&cb=${this.pdfCacheBuster}`;
+          } else if (
+            this.isDocx(this.document.Filename) ||
+            this.isDoc(this.document.Filename)
+          ) {
+            url = `http://localhost:8080/api/documents/${this.document.ID}/preview-pdf?token=${token}&cb=${this.pdfCacheBuster}`;
           }
-        });
-
-        const token = this.auth.getToken();
-        let url = '';
-        if (this.isPdf(this.document.Filename)) {
-          url = `http://localhost:8080/api/documents/${this.document.ID}/download?token=${token}&cb=${this.pdfCacheBuster}`;
-        } else if (
-          this.isDocx(this.document.Filename) ||
-          this.isDoc(this.document.Filename)
-        ) {
-          url = `http://localhost:8080/api/documents/${this.document.ID}/preview-pdf?token=${token}&cb=${this.pdfCacheBuster}`;
+          this.safePdfUrl = url
+            ? this.sanitizer.bypassSecurityTrustResourceUrl(url)
+            : null;
         }
-        this.safePdfUrl = url
-          ? this.sanitizer.bypassSecurityTrustResourceUrl(url)
-          : null;
         this.loading = false;
       },
       error: (err) => {
