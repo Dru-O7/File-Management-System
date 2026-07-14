@@ -21,6 +21,16 @@ export class AppComponent implements OnInit, OnDestroy {
   searchQuery: string = '';
   activeTab: string = 'pending_me';
   private intervalId: any;
+ 
+  // Compose Email Modal States
+  showComposeEmailModal: boolean = false;
+  emailRecipients: any[] = [];
+  composeTo: string = '';
+  composeSubject: string = '';
+  composeBody: string = '';
+  sendingEmail: boolean = false;
+  emailSendError: string = '';
+  emailSendSuccess: string = '';
 
   // Sidebar & Category States
   isSidebarCollapsed: boolean = false;
@@ -150,6 +160,47 @@ export class AppComponent implements OnInit, OnDestroy {
       this.router.navigate(['/details', n.DocumentID]);
     }
     this.showNotificationsDropdown = false;
+  }
+ 
+  openComposeEmailModal() {
+    this.showComposeEmailModal = true;
+    this.emailSendError = '';
+    this.emailSendSuccess = '';
+    this.composeTo = '';
+    this.composeSubject = '';
+    this.composeBody = '';
+    this.api.getUsers().subscribe({
+      next: (users) => {
+        this.emailRecipients = users || [];
+      },
+      error: (err) => {
+        console.error('Failed to load users for email compose modal:', err);
+      }
+    });
+  }
+ 
+  closeComposeEmailModal() {
+    this.showComposeEmailModal = false;
+  }
+ 
+  sendEmail(event: Event) {
+    event.preventDefault();
+    this.sendingEmail = true;
+    this.emailSendError = '';
+    this.emailSendSuccess = '';
+    this.api.sendManualEmail(this.composeTo, this.composeSubject, this.composeBody).subscribe({
+      next: (res) => {
+        this.sendingEmail = false;
+        this.emailSendSuccess = 'Email sent successfully via SMTP!';
+        setTimeout(() => {
+          this.closeComposeEmailModal();
+        }, 1500);
+      },
+      error: (err) => {
+        this.sendingEmail = false;
+        this.emailSendError = err.error?.error || 'Failed to send email. Check SMTP settings.';
+      }
+    });
   }
 
   logout() {

@@ -11,4 +11,5 @@ func RegisterRoutes(g *echo.Group, handler *Handler, jwtSecret []byte) {
 	r := g.Group("")
 	r.Use(middleware.AuthMiddleware(jwtSecret))
 	r.GET("/users", handler.GetUsers)
+	r.POST("/send-email", handler.SendManualEmail)
 }

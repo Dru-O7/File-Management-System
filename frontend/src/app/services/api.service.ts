@@ -81,6 +81,10 @@ export class ApiService {
     return this.http.get<any[]>(`${this.apiUrl}/my-history`);
   }
 
+  sendManualEmail(to: string, subject: string, body: string) {
+    return this.http.post<any>(`${this.apiUrl}/send-email`, { to, subject, body });
+  }
+
   // ── Admin API ──────────────────────────────────────────────────────────────
 
   getAdminStats() {

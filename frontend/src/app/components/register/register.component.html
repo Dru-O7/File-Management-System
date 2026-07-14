@@ -1,39 +1,41 @@
 <div class="max-w-[400px] mx-auto mt-20 px-4">
-  <div class="bg-white border border-[var(--border)] rounded-[var(--radius-lg)] p-8 shadow-md relative overflow-hidden">
+  <div class="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--radius-lg)] p-8 shadow-md relative overflow-hidden">
     <!-- Top accent line -->
     <div class="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--primary)] to-indigo-650"></div>
     
     <h2 class="text-center text-2xl font-bold text-[var(--text-primary)] mb-2">Create Account</h2>
     <p class="text-center text-[var(--text-secondary)] text-sm mb-6">Create your SchoolSync account</p>
     
-    <div class="mb-4">
-      <label for="reg-name" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Full Name</label>
-      <input id="reg-name" type="text" class="app-input" [(ngModel)]="name" placeholder="e.g. John Doe">
-    </div>
+    <form (submit)="register()">
+      <div class="mb-4">
+        <label for="reg-name" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Full Name</label>
+        <input id="reg-name" type="text" class="app-input" [(ngModel)]="name" name="name" placeholder="e.g. John Doe" required>
+      </div>
 
-    <div class="mb-4">
-      <label for="reg-email" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Email Address</label>
-      <input id="reg-email" type="email" class="app-input" [(ngModel)]="email" placeholder="e.g. john@school.edu">
-    </div>
+      <div class="mb-4">
+        <label for="reg-email" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Email Address</label>
+        <input id="reg-email" type="email" class="app-input" [(ngModel)]="email" name="email" placeholder="e.g. john@school.edu" required>
+      </div>
 
-    <div class="mb-4">
-      <label for="reg-password" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Password (Min 8 chars)</label>
-      <input id="reg-password" type="password" class="app-input" [(ngModel)]="password" placeholder="••••••••">
-    </div>
+      <div class="mb-4">
+        <label for="reg-password" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Password (Min 8 chars)</label>
+        <input id="reg-password" type="password" class="app-input" [(ngModel)]="password" name="password" placeholder="••••••••" required>
+      </div>
 
-    <div class="mb-5">
-      <label for="reg-confirm-password" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Confirm Password</label>
-      <input id="reg-confirm-password" type="password" class="app-input" [(ngModel)]="confirmPassword" placeholder="••••••••">
-    </div>
-    
-    <div *ngIf="error" class="text-rose-600 mb-4 text-sm p-3 bg-rose-50 border border-rose-100 rounded-xl">
-      {{ error }}
-    </div>
-    
-    <button class="w-full app-btn-primary py-3 cursor-pointer animate-none" [disabled]="loading" (click)="register()">
-      <span *ngIf="!loading">Sign Up</span>
-      <span *ngIf="loading">Creating account...</span>
-    </button>
+      <div class="mb-5">
+        <label for="reg-confirm-password" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Confirm Password</label>
+        <input id="reg-confirm-password" type="password" class="app-input" [(ngModel)]="confirmPassword" name="confirmPassword" placeholder="••••••••" required>
+      </div>
+      
+      <div *ngIf="error" class="text-rose-600 mb-4 text-sm p-3 bg-rose-50 border border-rose-100 rounded-xl">
+        {{ error }}
+      </div>
+      
+      <button type="submit" class="w-full app-btn-primary py-3 cursor-pointer animate-none" [disabled]="loading">
+        <span *ngIf="!loading">Sign Up</span>
+        <span *ngIf="loading">Creating account...</span>
+      </button>
+    </form>
 
     <p class="text-center text-sm text-[var(--text-secondary)] mt-4">
       Already have an account? 

@@ -105,7 +105,7 @@ func SendNotificationEmail(db *gorm.DB, notifID uuid.UUID) {
 		`, notif.Recipient.Name)
 	}
 
-	err := sendMail(cfg, []string{notif.Recipient.Email}, subject, body)
+	err := SendMail(cfg, []string{notif.Recipient.Email}, subject, body)
 	if err != nil {
 		log.Printf("[Email Service] Failed to send email to %s: %v", notif.Recipient.Email, err)
 		db.Model(&notif).Update("status", "failed")
@@ -117,7 +117,7 @@ func SendNotificationEmail(db *gorm.DB, notifID uuid.UUID) {
 	db.Model(&notif).Updates(map[string]interface{}{"status": "sent", "sent_at": &now})
 }
 
-func sendMail(cfg *config.Config, to []string, subject, body string) error {
+func SendMail(cfg *config.Config, to []string, subject, body string) error {
 	header := make(map[string]string)
 	header["From"] = cfg.SMTPFrom
 	header["To"] = strings.Join(to, ",")

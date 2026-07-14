@@ -3,12 +3,10 @@
     
     <!-- Left Sidebar (Desktop Only) -->
     <aside class="hidden md:flex flex-col w-64 bg-[var(--surface)] border-r border-[var(--border)] transition-all duration-300 flex-shrink-0" [class.md:w-20]="isSidebarCollapsed">
-      <!-- Sidebar Brand Header -->
-      <div class="h-16 px-4 border-b border-[var(--border)] flex items-center justify-between overflow-hidden">
-        <div class="flex items-center gap-2 cursor-pointer transition-all duration-200" (click)="navigateToDashboard()" [class.md:opacity-0]="isSidebarCollapsed" [class.md:pointer-events-none]="isSidebarCollapsed">
-          <!-- Logo matching screenshot -->
-          <span class="text-xl font-extrabold tracking-tight text-blue-900 dark:text-blue-400 leading-none">Samarth<span class="text-amber-500 font-black">X</span></span>
-          <span class="text-[9px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-950 dark:text-blue-300 px-1 py-0.5 rounded leading-none">eGov</span>
+      <div class="h-16 border-b border-[var(--border)] flex items-center transition-all duration-300 overflow-hidden"
+           [ngClass]="isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'">
+        <div class="flex items-center gap-2 cursor-pointer transition-all duration-200" (click)="navigateToDashboard()" *ngIf="!isSidebarCollapsed">
+          <img src="https://samarthx.du.ac.in/user/images/g5_hydrogen/samxw-removebg-preview.png" alt="SamarthX Logo" class="h-16 w-auto object-contain">
         </div>
         <!-- Collapse/Expand button -->
         <button class="p-1.5 rounded-lg hover:bg-[var(--background)] text-slate-500 cursor-pointer border-0 bg-transparent flex items-center" (click)="toggleSidebar()">
@@ -166,8 +164,8 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <div class="flex items-center gap-1.5" (click)="navigateToDashboard()">
-            <span class="text-lg font-extrabold tracking-tight text-[var(--text-primary)] leading-none">Samarth<span class="text-amber-500 font-black">X</span></span>
+          <div class="flex items-center gap-1.5 cursor-pointer" (click)="navigateToDashboard()">
+            <img src="https://samarthx.du.ac.in/user/images/g5_hydrogen/samxw-removebg-preview.png" alt="SamarthX Logo" class="h-8 w-auto object-contain">
           </div>
         </div>
 
@@ -200,8 +198,8 @@
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4.5 h-4.5"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
             </button>
             
-            <!-- Messages Link (Routes to Inbox) -->
-            <button class="p-1.5 rounded-lg hover:bg-[var(--background)] hover:text-[var(--text-primary)] cursor-pointer border-0 bg-transparent text-slate-400 flex items-center" title="Messages / Inbox" (click)="selectTab('pending_me')">
+            <!-- Compose In-App Email Button -->
+            <button class="p-1.5 rounded-lg hover:bg-[var(--background)] hover:text-[var(--text-primary)] cursor-pointer border-0 bg-transparent text-slate-400 flex items-center" title="Compose Email" (click)="openComposeEmailModal(); showProfileDropdown = false; showNotificationsDropdown = false; $event.stopPropagation()">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4.5 h-4.5"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
             </button>
 
@@ -283,7 +281,7 @@
     <div class="fixed inset-0 bg-slate-950/40 backdrop-blur-xs" (click)="toggleMobileMenu()"></div>
     <div class="relative flex-1 flex flex-col max-w-xs w-full bg-[var(--surface)] border-r border-[var(--border)]">
       <div class="h-16 px-4 border-b border-[var(--border)] flex items-center justify-between">
-        <span class="text-xl font-extrabold tracking-tight text-[var(--text-primary)] leading-none">Samarth<span class="text-amber-500">X</span></span>
+        <img src="https://samarthx.du.ac.in/user/images/g5_hydrogen/samxw-removebg-preview.png" alt="SamarthX Logo" class="h-9 w-auto object-contain">
         <button class="p-1.5 rounded-lg hover:bg-[var(--background)] text-slate-500 border-0 bg-transparent flex items-center" (click)="toggleMobileMenu()">
           <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -325,6 +323,71 @@
           Sign Out
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Compose Email Modal Overlay -->
+  <div *ngIf="showComposeEmailModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs" (click)="closeComposeEmailModal()">
+    <div class="relative w-full max-w-lg bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-xl text-[var(--text-primary)] animate-none" (click)="$event.stopPropagation()">
+      <div class="flex justify-between items-center mb-5 border-b border-[var(--border)] pb-3">
+        <h3 class="text-base font-bold flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-indigo-500"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          Compose In-App Email
+        </h3>
+        <button class="p-1.5 rounded-lg hover:bg-[var(--background)] text-slate-500 border-0 bg-transparent flex items-center cursor-pointer" (click)="closeComposeEmailModal()">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Errors/Success alerts -->
+      <div *ngIf="emailSendError" class="mb-4 text-xs font-semibold text-rose-600 bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 p-3 rounded-xl">
+        {{ emailSendError }}
+      </div>
+      <div *ngIf="emailSendSuccess" class="mb-4 text-xs font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 p-3 rounded-xl">
+        {{ emailSendSuccess }}
+      </div>
+
+      <form (submit)="sendEmail($event)">
+        <!-- Recipient selection -->
+        <div class="mb-4">
+          <label for="compose-to" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Recipient (User Directory)</label>
+          <select id="compose-to" class="app-input bg-[var(--background)] text-[var(--text-primary)] border-[var(--border)]" [(ngModel)]="composeTo" name="composeTo" required>
+            <option value="" disabled selected>-- Select a Recipient --</option>
+            <option *ngFor="let u of emailRecipients" [value]="u.Email || u.email">
+              {{ u.Name || u.name }} ({{ u.Email || u.email }}) - {{ u.Role || u.role }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Subject -->
+        <div class="mb-4">
+          <label for="compose-subject" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Subject</label>
+          <input id="compose-subject" type="text" class="app-input" placeholder="Enter email subject" [(ngModel)]="composeSubject" name="composeSubject" required>
+        </div>
+
+        <!-- Body -->
+        <div class="mb-5">
+          <label for="compose-body" class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Message Body</label>
+          <textarea id="compose-body" rows="6" class="app-input resize-none" placeholder="Write your message here..." [(ngModel)]="composeBody" name="composeBody" required></textarea>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="flex justify-end gap-3 border-t border-[var(--border)] pt-4">
+          <button type="button" class="app-btn-secondary py-2 px-4 cursor-pointer" (click)="closeComposeEmailModal()">Cancel</button>
+          <button type="submit" class="app-btn-primary py-2 px-5 cursor-pointer flex items-center gap-2" [disabled]="sendingEmail || !composeTo || !composeSubject || !composeBody">
+            <span *ngIf="!sendingEmail">Send Email</span>
+            <span *ngIf="sendingEmail" class="flex items-center gap-1.5">
+              <svg class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              Sending...
+            </span>
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </ng-container>
