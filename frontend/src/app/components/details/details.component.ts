@@ -64,9 +64,15 @@ export class DetailsComponent implements OnInit {
     this.api.getUsers().subscribe({
       next: (res) => {
         const currentId = this.currentUser?.ID || this.currentUser?.id;
-        this.users = res.filter(
-          (u) => (u.id || u.ID) !== currentId
-        );
+        const currentRole = this.currentUser?.Role || this.currentUser?.role;
+        const currentSchoolId = this.currentUser?.SchoolID || this.currentUser?.school_id;
+        const canSeeAll = currentRole === 'School Admin' || currentRole === 'SuperAdmin' || currentRole === 'Admin' || currentRole === 'DHE';
+        
+        this.users = res.filter(u => {
+          if ((u.id || u.ID) === currentId) return false;
+          if (canSeeAll) return true;
+          return (u.SchoolID || u.school_id) === currentSchoolId;
+        });
         if (this.users.length > 0) {
           this.selectedUser = this.users[0].id || this.users[0].ID;
         }

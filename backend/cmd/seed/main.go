@@ -17,24 +17,25 @@ func main() {
 
 	log.Println("Resetting and seeding database accounts...")
 
-	// Clear existing users and cascade child references
-	tx := gormDB.Exec("TRUNCATE TABLE users CASCADE;")
+	// Clear existing data (cascade will clear users, doctypes, etc. if FKs are set up, but let's be thorough)
+	tx := gormDB.Exec("TRUNCATE TABLE schools CASCADE;")
+	if tx.Error != nil {
+		log.Fatalf("Failed to truncate schools table: %v", tx.Error)
+	}
+	tx = gormDB.Exec("TRUNCATE TABLE users CASCADE;")
 	if tx.Error != nil {
 		log.Fatalf("Failed to truncate users table: %v", tx.Error)
 	}
 
-	// 1. Resolve or seed Greenwood High School
-	var school models.School
-	err := gormDB.First(&school, "slug = ?", "greenwood-high").Error
-	if err != nil {
-		school = models.School{
-			ID:   uuid.New(),
-			Name: "Greenwood High School",
-			Slug: "greenwood-high",
-		}
-		gormDB.Create(&school)
-		log.Println("Seeded school: Greenwood High School")
-	}
+	// 1. Seed Schools
+	school1 := models.School{ID: uuid.New(), Name: "Greenwood High School", Slug: "greenwood-high"}
+	school2 := models.School{ID: uuid.New(), Name: "Delhi Public School", Slug: "dps"}
+	school3 := models.School{ID: uuid.New(), Name: "Modern School", Slug: "modern-school"}
+	gormDB.Create(&school1)
+	gormDB.Create(&school2)
+	gormDB.Create(&school3)
+	log.Println("Seeded schools: Greenwood High, DPS, Modern School")
+	school := school1 // Keep reference to first school for document types seeding
 
 	// 2. Hash default password
 	hash, err := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)
@@ -44,22 +45,28 @@ func main() {
 
 	// 3. Define users
 	users := []models.User{
-		{Name: "Aarav Sharma", Email: "aarav@school.edu", PasswordHash: string(hash), Role: "vocational", SchoolID: &school.ID, ClassSection: "Department A"},
-		{Name: "Priya Patel", Email: "priya@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school.ID, ClassSection: "Department A", Subject: "Science"},
-		{Name: "Rahul Gupta", Email: "rahul@school.edu", PasswordHash: string(hash), Role: "School Admin", SchoolID: &school.ID},
-		{Name: "Deepak Singh", Email: "deepak@school.edu", PasswordHash: string(hash), Role: "non-teaching", SchoolID: &school.ID},
-		{Name: "Neha Reddy", Email: "neha@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school.ID, ClassSection: "Department B", Subject: "History"},
-		{Name: "Vikram Iyer", Email: "vikram@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school.ID, ClassSection: "Department C", Subject: "Mathematics"},
-		{Name: "Meera Menon", Email: "meera@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school.ID, ClassSection: "Department D", Subject: "English"},
-		{Name: "Gaurav Verma", Email: "gaurav@school.edu", PasswordHash: string(hash), Role: "School Admin", SchoolID: &school.ID},
-		{Name: "System Administrator", Email: "admin@school.edu", PasswordHash: string(hash), Role: "DHE", SchoolID: &school.ID},
+		{Name: "System Administrator", Email: "admin@school.edu", PasswordHash: string(hash), Role: "DHE", SchoolID: nil},
+		
+		// Greenwood High School
+		{Name: "Rahul Gupta", Email: "rahul@school.edu", PasswordHash: string(hash), Role: "School Admin", SchoolID: &school1.ID},
+		{Name: "Priya Patel", Email: "priya@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school1.ID, ClassSection: "Department A", Subject: "Science"},
+		{Name: "Deepak Singh", Email: "deepak@school.edu", PasswordHash: string(hash), Role: "non-teaching", SchoolID: &school1.ID},
+		
+		// Delhi Public School
+		{Name: "Gaurav Verma", Email: "gaurav@school.edu", PasswordHash: string(hash), Role: "School Admin", SchoolID: &school2.ID},
+		{Name: "Neha Reddy", Email: "neha@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school2.ID, ClassSection: "Department B", Subject: "History"},
+		
+		// Modern School
+		{Name: "Vikram Iyer", Email: "vikram@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school3.ID, ClassSection: "Department C", Subject: "Mathematics"},
+		{Name: "Meera Menon", Email: "meera@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school3.ID, ClassSection: "Department D", Subject: "English"},
+		{Name: "Aarav Sharma", Email: "aarav@school.edu", PasswordHash: string(hash), Role: "vocational", SchoolID: &school3.ID, ClassSection: "Department A"},
 	}
 
 	for i := range users {
 		users[i].ID = uuid.New()
 		gormDB.Create(&users[i])
 	}
-	log.Println("Seeded school-scoped users.")
+	log.Println("Seeded users across multiple schools.")
 
 	// 4. Ensure document types are seeded
 	var docTypeCount int64

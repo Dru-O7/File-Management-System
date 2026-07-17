@@ -77,8 +77,17 @@ export class UploadComponent implements OnInit {
 
     this.api.getUsers().subscribe({
       next: (res) => {
-        const currentId = this.auth.getCurrentUser()?.ID || this.auth.getCurrentUser()?.id;
-        this.users = res.filter(u => (u.id || u.ID) !== currentId && true);
+        const currentUser = this.auth.getCurrentUser();
+        const currentId = currentUser?.ID || currentUser?.id;
+        const currentRole = currentUser?.Role || currentUser?.role;
+        const currentSchoolId = currentUser?.SchoolID || currentUser?.school_id;
+        const canSeeAll = currentRole === 'School Admin' || currentRole === 'SuperAdmin' || currentRole === 'Admin' || currentRole === 'DHE';
+        
+        this.users = res.filter(u => {
+          if ((u.id || u.ID) === currentId) return false;
+          if (canSeeAll) return true;
+          return (u.SchoolID || u.school_id) === currentSchoolId;
+        });
         if (this.users.length > 0) {
           this.selectedApproverId = this.users[0].id || this.users[0].ID;
         }

@@ -10,16 +10,16 @@ import (
 )
 
 type Service interface {
-	GetStats() (*SystemStats, error)
-	GetAllUsers() ([]UserResponse, error)
+	GetStats(schoolID *string) (*SystemStats, error)
+	GetAllUsers(schoolID *string) ([]UserResponse, error)
 	CreateUser(req CreateUserRequest) (*UserResponse, error)
 	UpdateUser(id uuid.UUID, req UpdateUserRequest) (*UserResponse, error)
 	DeleteUser(id uuid.UUID) error
-	GetAllDocumentTypes() ([]DocumentTypeResponse, error)
+	GetAllDocumentTypes(schoolID *string) ([]DocumentTypeResponse, error)
 	CreateDocumentType(req CreateDocTypeRequest) (*DocumentTypeResponse, error)
 	UpdateDocumentType(id uuid.UUID, req UpdateDocTypeRequest) (*DocumentTypeResponse, error)
 	DeleteDocumentType(id uuid.UUID) error
-	GetAllSchools() ([]SchoolResponse, error)
+	GetAllSchools(schoolID *string) ([]SchoolResponse, error)
 	UpdateSchool(id uuid.UUID, req UpdateSchoolRequest) (*SchoolResponse, error)
 }
 
@@ -31,12 +31,12 @@ func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
-func (s *service) GetStats() (*SystemStats, error) {
-	return s.repo.GetStats()
+func (s *service) GetStats(schoolID *string) (*SystemStats, error) {
+	return s.repo.GetStats(schoolID)
 }
 
-func (s *service) GetAllUsers() ([]UserResponse, error) {
-	return s.repo.GetAllUsers()
+func (s *service) GetAllUsers(schoolID *string) ([]UserResponse, error) {
+	return s.repo.GetAllUsers(schoolID)
 }
 
 func (s *service) CreateUser(req CreateUserRequest) (*UserResponse, error) {
@@ -196,8 +196,8 @@ func (s *service) DeleteUser(id uuid.UUID) error {
 	return s.repo.DeleteUser(id)
 }
 
-func (s *service) GetAllDocumentTypes() ([]DocumentTypeResponse, error) {
-	return s.repo.GetAllDocumentTypes()
+func (s *service) GetAllDocumentTypes(schoolID *string) ([]DocumentTypeResponse, error) {
+	return s.repo.GetAllDocumentTypes(schoolID)
 }
 
 func (s *service) CreateDocumentType(req CreateDocTypeRequest) (*DocumentTypeResponse, error) {
@@ -311,8 +311,8 @@ func (s *service) DeleteDocumentType(id uuid.UUID) error {
 	return s.repo.DeleteDocumentType(id)
 }
 
-func (s *service) GetAllSchools() ([]SchoolResponse, error) {
-	return s.repo.GetAllSchools()
+func (s *service) GetAllSchools(schoolID *string) ([]SchoolResponse, error) {
+	return s.repo.GetAllSchools(schoolID)
 }
 
 func (s *service) UpdateSchool(id uuid.UUID, req UpdateSchoolRequest) (*SchoolResponse, error) {

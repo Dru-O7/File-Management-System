@@ -17,7 +17,12 @@ func NewHandler(service Service) *Handler {
 
 // GetStats returns system-wide statistics
 func (h *Handler) GetStats(c echo.Context) error {
-	stats, err := h.service.GetStats()
+	schoolIDStr, _ := c.Get("actor_school_id").(string)
+	var schoolID *string
+	if schoolIDStr != "" {
+		schoolID = &schoolIDStr
+	}
+	stats, err := h.service.GetStats(schoolID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch stats"})
 	}
@@ -26,7 +31,12 @@ func (h *Handler) GetStats(c echo.Context) error {
 
 // GetUsers returns all users across all schools
 func (h *Handler) GetUsers(c echo.Context) error {
-	users, err := h.service.GetAllUsers()
+	schoolIDStr, _ := c.Get("actor_school_id").(string)
+	var schoolID *string
+	if schoolIDStr != "" {
+		schoolID = &schoolIDStr
+	}
+	users, err := h.service.GetAllUsers(schoolID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch users"})
 	}
@@ -77,7 +87,12 @@ func (h *Handler) DeleteUser(c echo.Context) error {
 
 // GetDocumentTypes returns all document types across all schools
 func (h *Handler) GetDocumentTypes(c echo.Context) error {
-	dts, err := h.service.GetAllDocumentTypes()
+	schoolIDStr, _ := c.Get("actor_school_id").(string)
+	var schoolID *string
+	if schoolIDStr != "" {
+		schoolID = &schoolIDStr
+	}
+	dts, err := h.service.GetAllDocumentTypes(schoolID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch document types"})
 	}
@@ -128,7 +143,12 @@ func (h *Handler) DeleteDocumentType(c echo.Context) error {
 
 // GetSchools returns all schools
 func (h *Handler) GetSchools(c echo.Context) error {
-	schools, err := h.service.GetAllSchools()
+	schoolIDStr, _ := c.Get("actor_school_id").(string)
+	var schoolID *string
+	if schoolIDStr != "" {
+		schoolID = &schoolIDStr
+	}
+	schools, err := h.service.GetAllSchools(schoolID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch schools"})
 	}

@@ -8,18 +8,18 @@ import (
 )
 
 type Repository interface {
-	GetStats() (*SystemStats, error)
-	GetAllUsers() ([]UserResponse, error)
+	GetStats(schoolID *string) (*SystemStats, error)
+	GetAllUsers(schoolID *string) ([]UserResponse, error)
 	GetUserByID(id uuid.UUID) (*models.User, error)
 	CreateUser(user *models.User) error
 	UpdateUser(user *models.User) error
 	DeleteUser(id uuid.UUID) error
-	GetAllDocumentTypes() ([]DocumentTypeResponse, error)
+	GetAllDocumentTypes(schoolID *string) ([]DocumentTypeResponse, error)
 	CreateDocumentType(dt *models.DocumentType) error
 	GetDocumentTypeByID(id uuid.UUID) (*models.DocumentType, error)
 	UpdateDocumentType(dt *models.DocumentType) error
 	DeleteDocumentType(id uuid.UUID) error
-	GetAllSchools() ([]SchoolResponse, error)
+	GetAllSchools(schoolID *string) ([]SchoolResponse, error)
 	GetSchoolByID(id uuid.UUID) (*models.School, error)
 	UpdateSchool(school *models.School) error
 }
@@ -32,26 +32,57 @@ func NewRepository(db *gorm.DB) Repository {
 	return &repository{db: db}
 }
 
-func (r *repository) GetStats() (*SystemStats, error) {
+func (r *repository) GetStats(schoolID *string) (*SystemStats, error) {
 	var stats SystemStats
 
-	r.db.Model(&models.User{}).Count(&stats.TotalUsers)
-	r.db.Model(&models.Document{}).Count(&stats.TotalDocuments)
-	r.db.Model(&models.School{}).Count(&stats.TotalSchools)
-	r.db.Model(&models.DocumentType{}).Count(&stats.TotalDocumentTypes)
-	r.db.Model(&models.Document{}).Where("status = ?", models.StatusPendingApproval).Count(&stats.PendingDocuments)
-	r.db.Model(&models.Document{}).Where("status = ?", models.StatusApproved).Count(&stats.ApprovedDocuments)
-	r.db.Model(&models.Document{}).
-		Where("status NOT IN ?", []string{string(models.StatusClosed), string(models.StatusArchived), string(models.StatusRejected)}).
-		Count(&stats.ActiveDocuments)
+	userQuery := r.db.Model(&models.User{})
+	docQuery := r.db.Model(&models.Document{})
+	dtQuery := r.db.Model(&models.DocumentType{})
+	schoolQuery := r.db.Model(&models.School{})
+
+	if schoolID != nil {
+		userQuery = userQuery.Where("school_id = ?", *schoolID)
+		docQuery = docQuery.Where("school_id = ?", *schoolID)
+		dtQuery = dtQuery.Where("school_id = ?", *schoolID)
+		schoolQuery = schoolQuery.Where("id = ?", *schoolID)
+	}
+
+	userQuery.Count(&stats.TotalUsers)
+	docQuery.Count(&stats.TotalDocuments)
+	schoolQuery.Count(&stats.TotalSchools)
+	dtQuery.Count(&stats.TotalDocumentTypes)
+
+	docQueryPending := r.db.Model(&models.Document{}).Where("status = ?", models.StatusPendingApproval)
+	if schoolID != nil {
+		docQueryPending = docQueryPending.Where("school_id = ?", *schoolID)
+	}
+	docQueryPending.Count(&stats.PendingDocuments)
+
+	docQueryApproved := r.db.Model(&models.Document{}).Where("status = ?", models.StatusApproved)
+	if schoolID != nil {
+		docQueryApproved = docQueryApproved.Where("school_id = ?", *schoolID)
+	}
+	docQueryApproved.Count(&stats.ApprovedDocuments)
+
+	docQueryActive := r.db.Model(&models.Document{}).Where("status NOT IN ?", []string{string(models.StatusClosed), string(models.StatusArchived), string(models.StatusRejected)})
+	if schoolID != nil {
+		docQueryActive = docQueryActive.Where("school_id = ?", *schoolID)
+	}
+	docQueryActive.Count(&stats.ActiveDocuments)
+	
+	// Workflow History doesn't have school_id directly, would need join, ignoring for now or leaving as global
 	r.db.Model(&models.WorkflowHistory{}).Where("event_type = ?", "sla_breach").Count(&stats.SLABreaches)
 
 	return &stats, nil
 }
 
-func (r *repository) GetAllUsers() ([]UserResponse, error) {
+func (r *repository) GetAllUsers(schoolID *string) ([]UserResponse, error) {
 	var users []models.User
-	if err := r.db.Preload("School").Order("created_at desc").Find(&users).Error; err != nil {
+	query := r.db.Preload("School").Order("created_at desc")
+	if schoolID != nil {
+		query = query.Where("school_id = ?", *schoolID)
+	}
+	if err := query.Find(&users).Error; err != nil {
 		return nil, err
 	}
 
@@ -97,14 +128,18 @@ func (r *repository) DeleteUser(id uuid.UUID) error {
 	return r.db.Delete(&models.User{}, "id = ?", id).Error
 }
 
-func (r *repository) GetAllDocumentTypes() ([]DocumentTypeResponse, error) {
-	var dts []models.DocumentType
-	if err := r.db.Preload("School").Order("created_at desc").Find(&dts).Error; err != nil {
+func (r *repository) GetAllDocumentTypes(schoolID *string) ([]DocumentTypeResponse, error) {
+	var docTypes []models.DocumentType
+	query := r.db.Preload("School").Order("name asc")
+	if schoolID != nil {
+		query = query.Where("school_id = ?", *schoolID)
+	}
+	if err := query.Find(&docTypes).Error; err != nil {
 		return nil, err
 	}
 
 	var resp []DocumentTypeResponse
-	for _, dt := range dts {
+	for _, dt := range docTypes {
 		resp = append(resp, DocumentTypeResponse{
 			ID:                dt.ID,
 			SchoolID:          dt.SchoolID,
@@ -140,9 +175,13 @@ func (r *repository) DeleteDocumentType(id uuid.UUID) error {
 	return r.db.Delete(&models.DocumentType{}, "id = ?", id).Error
 }
 
-func (r *repository) GetAllSchools() ([]SchoolResponse, error) {
+func (r *repository) GetAllSchools(schoolID *string) ([]SchoolResponse, error) {
 	var schools []models.School
-	if err := r.db.Order("created_at desc").Find(&schools).Error; err != nil {
+	query := r.db.Order("name asc")
+	if schoolID != nil {
+		query = query.Where("id = ?", *schoolID)
+	}
+	if err := query.Find(&schools).Error; err != nil {
 		return nil, err
 	}
 

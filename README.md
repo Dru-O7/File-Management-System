@@ -134,21 +134,22 @@ The Angular frontend provides dashboard controls for document actions, tracking 
 
 The database is pre-seeded with mock users. You can log in on the login screen by entering one of these email addresses along with the default password **`password`**:
 
-### Admins
-- **Admin User**: `admin@school.edu` (Role: Admin — automatically redirected to `/admin` dashboard)
+### System Administrators (DHE)
+- **System Administrator**: `admin@school.edu`
 
-### Students
-- **Alice Smith**: `alice@school.edu` (Class 10-A)
+### School Admins
+- **Rahul Gupta**: `rahul@school.edu`
+- **Gaurav Verma**: `gaurav@school.edu`
 
-### Teachers
-- **Bob Johnson**: `bob@school.edu` (Subject: Science, Class 10-A)
-- **Diana Prince**: `diana@school.edu` (Subject: Mathematics, Class 10-B)
+### Teaching Staff
+- **Priya Patel**: `priya@school.edu` (Department A)
+- **Neha Reddy**: `neha@school.edu` (Department B)
+- **Vikram Iyer**: `vikram@school.edu` (Department C)
+- **Meera Menon**: `meera@school.edu` (Department D)
 
-### Principals
-- **Charlie Brown**: `charlie@school.edu`
-
-### Parents
-- **David Smith**: `david@school.edu` (Parent of Alice Smith)
+### Other Staff
+- **Deepak Singh**: `deepak@school.edu` (Non-teaching)
+- **Aarav Sharma**: `aarav@school.edu` (Vocational)
 
 ---
 

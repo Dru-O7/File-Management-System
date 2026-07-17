@@ -66,7 +66,7 @@ export class AdminComponent implements OnInit {
   ngOnInit() {
     this.currentUser = this.auth.getCurrentUser() || {};
     const role = this.currentUser.Role || this.currentUser.role;
-    this.isSuperAdmin = (role === 'Admin' || role === 'SuperAdmin');
+    this.isSuperAdmin = (role === 'Admin' || role === 'SuperAdmin' || role === 'DHE');
     this.loadStats();
     this.loadUsers();
     this.loadDocTypes();

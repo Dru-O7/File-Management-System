@@ -20,7 +20,7 @@ func NewRepository(db *gorm.DB) Repository {
 
 func (r *repository) GetByEmail(email string) (*models.User, error) {
 	var u models.User
-	if err := r.db.First(&u, "email = ?", email).Error; err != nil {
+	if err := r.db.Preload("School").First(&u, "email = ?", email).Error; err != nil {
 		return nil, err
 	}
 	return &u, nil
