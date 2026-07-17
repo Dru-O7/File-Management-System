@@ -24,7 +24,6 @@ type Repository interface {
 	GetPendingApprovers(docID uuid.UUID, stage int) ([]models.DocumentPendingApprover, error)
 	GetPendingApproverByStage(docID uuid.UUID, stage int) (*models.DocumentPendingApprover, error)
 	MarkApproverStatus(docID, userID uuid.UUID, stage int, status string) error
-	GetParentByStudent(studentID uuid.UUID) (*models.User, error)
 	GetSubmissionsByRefDocID(refDocID uuid.UUID) ([]models.Document, error)
 }
 
@@ -99,12 +98,10 @@ func (r *repository) ListByUser(userID uuid.UUID, search string) ([]models.Docum
 
 	case "non-teaching":
 		// non-teaching can see:
-		// 1. Documents uploaded by their subordinates (children logic repurposed if needed, but for now kept structurally similar)
-		// 2. Documents they own / pending review
-		// 3. Official Circulars targeted at their subordinates' departments or All
+		// 1. Documents they own / pending review
 		query = query.Where(
-			"uploader_id IN (SELECT child_id FROM parent_children WHERE parent_id = ?) OR current_owner_id = ? OR (category = 'Official Circular' AND (target_class = 'All' OR target_class IN (SELECT class_section FROM users WHERE id IN (SELECT child_id FROM parent_children WHERE parent_id = ?))))",
-			userID, userID, userID,
+			"uploader_id = ? OR current_owner_id = ?",
+			userID, userID,
 		)
 
 	default: // vocational or other fallback
@@ -218,16 +215,3 @@ func (r *repository) MarkApproverStatus(docID, userID uuid.UUID, stage int, stat
 			"signed_at": &now,
 		}).Error
 }
-
-func (r *repository) GetParentByStudent(studentID uuid.UUID) (*models.User, error) {
-	var parent models.User
-	err := r.db.Table("users").
-		Joins("JOIN parent_children ON parent_children.parent_id = users.id").
-		Where("parent_children.child_id = ?", studentID).
-		First(&parent).Error
-	if err != nil {
-		return nil, err
-	}
-	return &parent, nil
-}
-

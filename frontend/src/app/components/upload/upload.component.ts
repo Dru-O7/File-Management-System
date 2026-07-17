@@ -16,7 +16,6 @@ export class UploadComponent implements OnInit {
   users: any[] = [];
   documentTypes: any[] = [];
   selectedFile: File | null = null;
-  approverChain: any[] = [];
   selectedApproverId: string = '';
   title: string = '';
   description: string = '';
@@ -27,7 +26,7 @@ export class UploadComponent implements OnInit {
   loading: boolean = false;
 
   targetClasses: string[] = ['All'];
-  availableClasses: string[] = ['All', '10-A', '10-B', '10-C', '10-D', '11-Science', '12-Science'];
+  availableClasses: string[] = ['All', 'Department A', 'Department B', 'Department C', 'Department D'];
 
   constructor(
     private api: ApiService, 
@@ -45,9 +44,7 @@ export class UploadComponent implements OnInit {
     this.api.getDocumentTypes().subscribe({
       next: (res) => {
         const currentUser = this.auth.getCurrentUser();
-        if (currentUser && (currentUser.Role === 'Student' || currentUser.Role === 'Parent' || currentUser.role === 'Student' || currentUser.role === 'Parent')) {
-          this.documentTypes = res.filter(dt => dt.Name !== 'Circular' && dt.name !== 'Circular');
-        } else {
+        if (true) {
           this.documentTypes = res;
         }
 
@@ -72,7 +69,7 @@ export class UploadComponent implements OnInit {
     if (currentUser) {
       const isTeacher = currentUser.Role === 'Teacher' || currentUser.role === 'Teacher';
       if (isTeacher) {
-        const cSec = currentUser.ClassSection || currentUser.class_section || '10-A';
+        const cSec = currentUser.ClassSection || currentUser.class_section || 'Department A';
         // Allow teachers to broadcast to multiple classes by keeping all available, but default to theirs
         this.targetClasses = [cSec];
       }
@@ -81,7 +78,7 @@ export class UploadComponent implements OnInit {
     this.api.getUsers().subscribe({
       next: (res) => {
         const currentId = this.auth.getCurrentUser()?.ID || this.auth.getCurrentUser()?.id;
-        this.users = res.filter(u => (u.id || u.ID) !== currentId && u.Role !== 'Student' && u.role !== 'Student');
+        this.users = res.filter(u => (u.id || u.ID) !== currentId && true);
         if (this.users.length > 0) {
           this.selectedApproverId = this.users[0].id || this.users[0].ID;
         }
@@ -103,39 +100,27 @@ export class UploadComponent implements OnInit {
     }
   }
 
-  addToChain() {
-    if (this.selectedApproverId) {
-      const user = this.users.find(u => (u.id || u.ID) === this.selectedApproverId);
-      if (user && !this.approverChain.find(a => (a.id || a.ID) === this.selectedApproverId)) {
-        this.approverChain.push(user);
-      }
-    }
-  }
 
-  removeFromChain(index: number) {
-    this.approverChain.splice(index, 1);
-  }
 
   upload() {
     if (!this.selectedFile && this.category !== 'Assignment Broadcast') {
       this.error = 'Please select a file.';
       return;
     }
-    if (this.category !== 'Circular' && this.category !== 'Assignment Broadcast' && this.approverChain.length === 0) {
-      this.error = 'Please add at least one approver to the chain.';
+    if (this.category !== 'Circular' && this.category !== 'Assignment Broadcast' && !this.selectedApproverId) {
+      this.error = 'Please select a recipient to forward to.';
       return;
     }
 
     const currentUser = this.auth.getCurrentUser();
     const formData = new FormData();
     if (this.selectedFile) {
-      formData.append('file', this.selectedFile);
+      formData.append('file', this.selectedFile as Blob);
     }
     formData.append('uploader_id', currentUser.ID || currentUser.id);
     
     if (this.category !== 'Circular' && this.category !== 'Assignment Broadcast') {
-      const chainIds = this.approverChain.map(a => a.id || a.ID).join(',');
-      formData.append('target_owner_ids', chainIds);
+      formData.append('target_owner_ids', this.selectedApproverId);
     }
     formData.append('target_class', this.targetClasses.join(','));
 

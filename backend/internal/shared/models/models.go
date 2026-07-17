@@ -32,14 +32,7 @@ type User struct {
 	School *School `gorm:"foreignKey:SchoolID"`
 }
 
-// ParentChild defines many-to-many relationship between parent and children
-type ParentChild struct {
-	ParentID uuid.UUID `gorm:"type:uuid;primaryKey"`
-	ChildID  uuid.UUID `gorm:"type:uuid;primaryKey"`
-
-	Parent User `gorm:"foreignKey:ParentID"`
-	Child  User `gorm:"foreignKey:ChildID"`
-}
+// Removed ParentChild model as per new employee-only requirements
 
 type DocumentStatus string
 
@@ -61,7 +54,6 @@ type DocumentType struct {
 	WorkflowStages    string     `gorm:"type:text;not null"` // JSON array of stages
 	RequiredFields    string     `gorm:"type:text"`          // JSON array of dynamic fields
 	SlaHours          int        `gorm:"default:72"`
-	NeedsParentCosign bool       `gorm:"default:false"`
 	Active            bool       `gorm:"default:true"`
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
@@ -84,14 +76,12 @@ type Document struct {
 	Tags            string         `gorm:"size:255"`
 	Category        string         `gorm:"size:100"`
 	Version         int            `gorm:"not null;default:1;uniqueIndex:idx_unique_number_version"`
-	ParentDocID     *uuid.UUID     `gorm:"type:uuid"` // Linked to previous version
 	CurrentStage    int            `gorm:"not null;default:1"`
 	SlaDeadline     *time.Time
 	Metadata        string    `gorm:"type:text"` // JSON object containing form fields
 	Priority        string    `gorm:"size:50;default:'Normal'"` // Normal, Urgent, Confidential
 	Direction       string    `gorm:"size:50;default:'Inward'"` // Inward, Outward
 	TargetClass     string    `gorm:"size:255"`                 // e.g. "All", "10-A,10-B" for circulars/broadcasts
-	RefDocumentID   *uuid.UUID `gorm:"type:uuid"`               // For student submissions linking to Assignment Broadcast
 	AssignedAt      time.Time `gorm:"default:now()"`
 	ReferralOwnerID *uuid.UUID `gorm:"type:uuid"` // Nullable: stores original owner during refer/detour
 	NotingSheet     string    `gorm:"type:text"` // Running commentaries

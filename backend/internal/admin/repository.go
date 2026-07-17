@@ -114,7 +114,6 @@ func (r *repository) GetAllDocumentTypes() ([]DocumentTypeResponse, error) {
 			WorkflowStages:    dt.WorkflowStages,
 			RequiredFields:    dt.RequiredFields,
 			SlaHours:          dt.SlaHours,
-			NeedsParentCosign: dt.NeedsParentCosign,
 			Active:            dt.Active,
 		})
 	}

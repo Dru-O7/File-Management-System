@@ -215,15 +215,14 @@ func (s *service) CreateDocumentType(req CreateDocTypeRequest) (*DocumentTypeRes
 	}
 
 	dt := &models.DocumentType{
-		ID:                uuid.New(),
-		SchoolID:          req.SchoolID,
-		Name:              req.Name,
-		Slug:              req.Slug,
-		WorkflowStages:    req.WorkflowStages,
-		RequiredFields:    req.RequiredFields,
-		SlaHours:          req.SlaHours,
-		NeedsParentCosign: req.NeedsParentCosign,
-		Active:            true,
+		ID:             uuid.New(),
+		SchoolID:       req.SchoolID,
+		Name:           req.Name,
+		Slug:           req.Slug,
+		WorkflowStages: req.WorkflowStages,
+		RequiredFields: req.RequiredFields,
+		SlaHours:       req.SlaHours,
+		Active:         true,
 	}
 
 	if err := s.repo.CreateDocumentType(dt); err != nil {
@@ -231,15 +230,14 @@ func (s *service) CreateDocumentType(req CreateDocTypeRequest) (*DocumentTypeRes
 	}
 
 	return &DocumentTypeResponse{
-		ID:                dt.ID,
-		SchoolID:          dt.SchoolID,
-		Name:              dt.Name,
-		Slug:              dt.Slug,
-		WorkflowStages:    dt.WorkflowStages,
-		RequiredFields:    dt.RequiredFields,
-		SlaHours:          dt.SlaHours,
-		NeedsParentCosign: dt.NeedsParentCosign,
-		Active:            dt.Active,
+		ID:             dt.ID,
+		SchoolID:       dt.SchoolID,
+		Name:           dt.Name,
+		Slug:           dt.Slug,
+		WorkflowStages: dt.WorkflowStages,
+		RequiredFields: dt.RequiredFields,
+		SlaHours:       dt.SlaHours,
+		Active:         dt.Active,
 	}, nil
 }
 
@@ -278,7 +276,6 @@ func (s *service) UpdateDocumentType(id uuid.UUID, req UpdateDocTypeRequest) (*D
 	if req.SlaHours > 0 {
 		dt.SlaHours = req.SlaHours
 	}
-	dt.NeedsParentCosign = req.NeedsParentCosign
 	dt.Active = req.Active
 
 	if err := s.repo.UpdateDocumentType(dt); err != nil {
@@ -293,7 +290,6 @@ func (s *service) UpdateDocumentType(id uuid.UUID, req UpdateDocTypeRequest) (*D
 		WorkflowStages:    dt.WorkflowStages,
 		RequiredFields:    dt.RequiredFields,
 		SlaHours:          dt.SlaHours,
-		NeedsParentCosign: dt.NeedsParentCosign,
 		Active:            dt.Active,
 	}, nil
 }

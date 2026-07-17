@@ -307,13 +307,7 @@ export class DashboardComponent implements OnInit {
   }
 
   getCategoryIcon(name: string): string {
-    const n = name.toLowerCase();
-    if (n.includes('assign')) return '📝';
-    if (n.includes('leave')) return '📅';
-    if (n.includes('permis')) return '🔑';
-    if (n.includes('transf') || n.includes('certif')) return '🎓';
-    if (n.includes('fee') || n.includes('concess')) return '💰';
-    return '📁';
+    return '';
   }
 
   launchNewDoc(categoryName: string) {

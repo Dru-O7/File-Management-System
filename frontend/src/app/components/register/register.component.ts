@@ -19,7 +19,7 @@ export class RegisterComponent {
   confirmPassword: string = '';
   error: string = '';
   loading: boolean = false;
-  activePortal: string = 'student';
+  activePortal: string = 'employee';
 
   constructor(private api: ApiService, private auth: AuthService, private router: Router) {}
 

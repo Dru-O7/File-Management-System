@@ -65,10 +65,7 @@ export class DetailsComponent implements OnInit {
       next: (res) => {
         const currentId = this.currentUser?.ID || this.currentUser?.id;
         this.users = res.filter(
-          (u) =>
-            (u.id || u.ID) !== currentId &&
-            u.Role !== 'Student' &&
-            u.role !== 'Student',
+          (u) => (u.id || u.ID) !== currentId
         );
         if (this.users.length > 0) {
           this.selectedUser = this.users[0].id || this.users[0].ID;

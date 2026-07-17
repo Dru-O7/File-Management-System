@@ -24,7 +24,7 @@ func adminAccessMiddleware(db *gorm.DB) echo.MiddlewareFunc {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "User not found"})
 			}
 
-			if user.Role != "Admin" {
+			if user.Role != "Admin" && user.Role != "SuperAdmin" && user.Role != "DHE" && user.Role != "School Admin" {
 				return c.JSON(http.StatusForbidden, map[string]string{"error": "Access denied: Admin role required"})
 			}
 

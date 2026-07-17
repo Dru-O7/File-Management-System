@@ -44,14 +44,14 @@ func main() {
 
 	// 3. Define users
 	users := []models.User{
-		{Name: "Alice Smith", Email: "alice@school.edu", PasswordHash: string(hash), Role: "vocational", SchoolID: &school.ID, ClassSection: "Department A"},
-		{Name: "Bob Johnson", Email: "bob@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school.ID, ClassSection: "Department A", Subject: "Science"},
-		{Name: "Charlie Brown", Email: "charlie@school.edu", PasswordHash: string(hash), Role: "School Admin", SchoolID: &school.ID},
-		{Name: "David Smith", Email: "david@school.edu", PasswordHash: string(hash), Role: "non-teaching", SchoolID: &school.ID},
-		{Name: "Diana Prince", Email: "diana@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school.ID, ClassSection: "Department B", Subject: "History"},
-		{Name: "Evan Wright", Email: "evan@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school.ID, ClassSection: "Department C", Subject: "Mathematics"},
-		{Name: "Fiona Gallagher", Email: "fiona@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school.ID, ClassSection: "Department D", Subject: "English"},
-		{Name: "George Vance", Email: "george@school.edu", PasswordHash: string(hash), Role: "School Admin", SchoolID: &school.ID},
+		{Name: "Aarav Sharma", Email: "aarav@school.edu", PasswordHash: string(hash), Role: "vocational", SchoolID: &school.ID, ClassSection: "Department A"},
+		{Name: "Priya Patel", Email: "priya@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school.ID, ClassSection: "Department A", Subject: "Science"},
+		{Name: "Rahul Gupta", Email: "rahul@school.edu", PasswordHash: string(hash), Role: "School Admin", SchoolID: &school.ID},
+		{Name: "Deepak Singh", Email: "deepak@school.edu", PasswordHash: string(hash), Role: "non-teaching", SchoolID: &school.ID},
+		{Name: "Neha Reddy", Email: "neha@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school.ID, ClassSection: "Department B", Subject: "History"},
+		{Name: "Vikram Iyer", Email: "vikram@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school.ID, ClassSection: "Department C", Subject: "Mathematics"},
+		{Name: "Meera Menon", Email: "meera@school.edu", PasswordHash: string(hash), Role: "Teaching staff", SchoolID: &school.ID, ClassSection: "Department D", Subject: "English"},
+		{Name: "Gaurav Verma", Email: "gaurav@school.edu", PasswordHash: string(hash), Role: "School Admin", SchoolID: &school.ID},
 		{Name: "System Administrator", Email: "admin@school.edu", PasswordHash: string(hash), Role: "DHE", SchoolID: &school.ID},
 	}
 
@@ -61,68 +61,50 @@ func main() {
 	}
 	log.Println("Seeded school-scoped users.")
 
-	// Establish Parent-Child link (David is Alice's parent)
-	var alice, david models.User
-	gormDB.First(&alice, "email = ?", "alice@school.edu")
-	gormDB.First(&david, "email = ?", "david@school.edu")
-	if alice.ID != uuid.Nil && david.ID != uuid.Nil {
-		pc := models.ParentChild{
-			ParentID: david.ID,
-			ChildID:  alice.ID,
-		}
-		gormDB.Create(&pc)
-		log.Println("Established Parent-Child relationship: David -> Alice")
-	}
-
 	// 4. Ensure document types are seeded
 	var docTypeCount int64
 	gormDB.Model(&models.DocumentType{}).Count(&docTypeCount)
 	if docTypeCount == 0 {
 		docTypes := []models.DocumentType{
 			{
-				SchoolID:          school.ID,
-				Name:              "Staff Grievance",
-				Slug:              "staff-grievance",
-				WorkflowStages:    `[{"stage": 1, "role": "Teaching staff", "label": "Department Head", "optional": false}]`,
-				RequiredFields:    `[]`,
-				SlaHours:          72,
-				NeedsParentCosign: false,
+				SchoolID:       school.ID,
+				Name:           "Staff Grievance",
+				Slug:           "staff-grievance",
+				WorkflowStages: `[{"stage": 1, "role": "Teaching staff", "label": "Department Head", "optional": false}]`,
+				RequiredFields: `[]`,
+				SlaHours:       72,
 			},
 			{
-				SchoolID:          school.ID,
-				Name:              "Infrastructure Issue",
-				Slug:              "infrastructure-issue",
-				WorkflowStages:    `[{"stage": 1, "role": "School Admin", "label": "School Admin Final approval", "optional": false}]`,
-				RequiredFields:    `["reason", "urgency"]`,
-				SlaHours:          120,
-				NeedsParentCosign: false,
+				SchoolID:       school.ID,
+				Name:           "Infrastructure Issue",
+				Slug:           "infrastructure-issue",
+				WorkflowStages: `[{"stage": 1, "role": "School Admin", "label": "School Admin Final approval", "optional": false}]`,
+				RequiredFields: `["reason", "urgency"]`,
+				SlaHours:       120,
 			},
 			{
-				SchoolID:          school.ID,
-				Name:              "Disciplinary Issue",
-				Slug:              "disciplinary-issue",
-				WorkflowStages:    `[{"stage": 1, "role": "Teaching staff", "label": "Department Head", "optional": false}]`,
-				RequiredFields:    `["event_name", "event_date"]`,
-				SlaHours:          24,
-				NeedsParentCosign: false,
+				SchoolID:       school.ID,
+				Name:           "Disciplinary Issue",
+				Slug:           "disciplinary-issue",
+				WorkflowStages: `[{"stage": 1, "role": "Teaching staff", "label": "Department Head", "optional": false}]`,
+				RequiredFields: `["event_name", "event_date"]`,
+				SlaHours:       24,
 			},
 			{
-				SchoolID:          school.ID,
-				Name:              "Audit Report",
-				Slug:              "audit-report",
-				WorkflowStages:    `[{"stage": 1, "role": "School Admin", "label": "School Admin Approval", "optional": false}]`,
-				RequiredFields:    `["audit_reason", "percentage"]`,
-				SlaHours:          96,
-				NeedsParentCosign: false,
+				SchoolID:       school.ID,
+				Name:           "Audit Report",
+				Slug:           "audit-report",
+				WorkflowStages: `[{"stage": 1, "role": "School Admin", "label": "School Admin Approval", "optional": false}]`,
+				RequiredFields: `["audit_reason", "percentage"]`,
+				SlaHours:       96,
 			},
 			{
-				SchoolID:          school.ID,
-				Name:              "Official Circular",
-				Slug:              "official-circular",
-				WorkflowStages:    `[]`,
-				RequiredFields:    `[]`,
-				SlaHours:          0,
-				NeedsParentCosign: false,
+				SchoolID:       school.ID,
+				Name:           "Official Circular",
+				Slug:           "official-circular",
+				WorkflowStages: `[]`,
+				RequiredFields: `[]`,
+				SlaHours:       0,
 			},
 		}
 		for i := range docTypes {

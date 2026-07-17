@@ -488,6 +488,7 @@ tr:hover td { background: #fafafa; }
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 
 .badge-superadmin { background: #1e1b4b; color: #fff; }

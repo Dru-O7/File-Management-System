@@ -22,7 +22,6 @@ func Init(databaseURL string) *gorm.DB {
 	err = db.AutoMigrate(
 		&models.School{},
 		&models.User{},
-		&models.ParentChild{},
 		&models.DocumentType{},
 		&models.Document{},
 		&models.DocumentPendingApprover{},

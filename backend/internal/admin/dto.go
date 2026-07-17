@@ -67,7 +67,6 @@ type DocumentTypeResponse struct {
 	WorkflowStages    string    `json:"WorkflowStages"`
 	RequiredFields    string    `json:"RequiredFields"`
 	SlaHours          int       `json:"SlaHours"`
-	NeedsParentCosign bool      `json:"NeedsParentCosign"`
 	Active            bool      `json:"Active"`
 }
 
@@ -78,7 +77,6 @@ type CreateDocTypeRequest struct {
 	WorkflowStages    string    `json:"workflow_stages"`
 	RequiredFields    string    `json:"required_fields"`
 	SlaHours          int       `json:"sla_hours"`
-	NeedsParentCosign bool      `json:"needs_parent_cosign"`
 }
 
 type UpdateDocTypeRequest struct {
@@ -87,7 +85,6 @@ type UpdateDocTypeRequest struct {
 	WorkflowStages    string `json:"workflow_stages"`
 	RequiredFields    string `json:"required_fields"`
 	SlaHours          int    `json:"sla_hours"`
-	NeedsParentCosign bool   `json:"needs_parent_cosign"`
 	Active            bool   `json:"active"`
 }
 

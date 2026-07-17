@@ -232,22 +232,22 @@ func seedData(gormDB *gorm.DB) {
 
 	seedUsers := []seedUser{
 		// 4 vocational
-		{Name: "Alice Smith", Email: "alice@school.edu", Role: "vocational", ClassSection: "Department A"},
-		{Name: "Brian Lee", Email: "brian@school.edu", Role: "vocational", ClassSection: "Department B"},
-		{Name: "Chloe Davis", Email: "chloe@school.edu", Role: "vocational", ClassSection: "Department C"},
-		{Name: "Daniel Roy", Email: "daniel@school.edu", Role: "vocational", ClassSection: "Department D"},
+		{Name: "Aarav Sharma", Email: "aarav@school.edu", Role: "vocational", ClassSection: "Department A"},
+		{Name: "Ananya Iyer", Email: "ananya@school.edu", Role: "vocational", ClassSection: "Department B"},
+		{Name: "Rohan Das", Email: "rohan@school.edu", Role: "vocational", ClassSection: "Department C"},
+		{Name: "Kavya Menon", Email: "kavya@school.edu", Role: "vocational", ClassSection: "Department D"},
 		// 4 Teaching staff
-		{Name: "Bob Johnson", Email: "bob@school.edu", Role: "Teaching staff", ClassSection: "Department A", Subject: "Science"},
-		{Name: "Diana Prince", Email: "diana@school.edu", Role: "Teaching staff", ClassSection: "Department B", Subject: "Mathematics"},
-		{Name: "Evan Wright", Email: "evan@school.edu", Role: "Teaching staff", ClassSection: "Department C", Subject: "Mathematics"},
-		{Name: "Fiona Gallagher", Email: "fiona@school.edu", Role: "Teaching staff", ClassSection: "Department D", Subject: "English"},
+		{Name: "Priya Patel", Email: "priya@school.edu", Role: "Teaching staff", ClassSection: "Department A", Subject: "Science"},
+		{Name: "Neha Reddy", Email: "neha@school.edu", Role: "Teaching staff", ClassSection: "Department B", Subject: "History"},
+		{Name: "Vikram Iyer", Email: "vikram@school.edu", Role: "Teaching staff", ClassSection: "Department C", Subject: "Mathematics"},
+		{Name: "Meera Menon", Email: "meera@school.edu", Role: "Teaching staff", ClassSection: "Department D", Subject: "English"},
 		// School Admins
-		{Name: "Charlie Brown", Email: "charlie@school.edu", Role: "School Admin"},
-		{Name: "George Vance", Email: "george@school.edu", Role: "School Admin"},
+		{Name: "Rahul Gupta", Email: "rahul@school.edu", Role: "School Admin"},
+		{Name: "Gaurav Verma", Email: "gaurav@school.edu", Role: "School Admin"},
 		// 1 Admin (school-level admin)
-		{Name: "System Administrator", Email: "admin@school.edu", Role: "Admin"},
-		// 1 Parent (kept for parent-child relationship)
-		{Name: "David Smith", Email: "david@school.edu", Role: "Parent"},
+		{Name: "System Administrator", Email: "admin@school.edu", Role: "DHE"},
+		// 1 Non-teaching staff
+		{Name: "Deepak Singh", Email: "deepak@school.edu", Role: "non-teaching"},
 	}
 
 	for _, su := range seedUsers {
@@ -270,19 +270,7 @@ func seedData(gormDB *gorm.DB) {
 		}
 	}
 
-	// Establish Parent-Child link (David → Alice)
-	var alice, david models.User
-	gormDB.First(&alice, "email = ?", "alice@school.edu")
-	gormDB.First(&david, "email = ?", "david@school.edu")
-	if alice.ID != uuid.Nil && david.ID != uuid.Nil {
-		var pcCount int64
-		gormDB.Model(&models.ParentChild{}).Where("parent_id = ? AND child_id = ?", david.ID, alice.ID).Count(&pcCount)
-		if pcCount == 0 {
-			pc := models.ParentChild{ParentID: david.ID, ChildID: alice.ID}
-			gormDB.Create(&pc)
-			log.Println("Established Parent-Child relationship: David → Alice")
-		}
-	}
+
 
 	// 3. Seed Document Types
 	docTypes := []models.DocumentType{
@@ -293,7 +281,7 @@ func seedData(gormDB *gorm.DB) {
 			WorkflowStages:    `[{"stage": 1, "role": "Teaching staff", "label": "Department Head", "optional": false}]`,
 			RequiredFields:    `[]`,
 			SlaHours:          72,
-			NeedsParentCosign: false,
+			
 		},
 		{
 			SchoolID:          school.ID,
@@ -302,7 +290,7 @@ func seedData(gormDB *gorm.DB) {
 			WorkflowStages:    `[{"stage": 1, "role": "School Admin", "label": "School Admin Final approval", "optional": false}]`,
 			RequiredFields:    `["reason", "urgency"]`,
 			SlaHours:          120,
-			NeedsParentCosign: false,
+			
 		},
 		{
 			SchoolID:          school.ID,
@@ -311,7 +299,7 @@ func seedData(gormDB *gorm.DB) {
 			WorkflowStages:    `[{"stage": 1, "role": "Teaching staff", "label": "Department Head", "optional": false}]`,
 			RequiredFields:    `["event_name", "event_date"]`,
 			SlaHours:          24,
-			NeedsParentCosign: false,
+			
 		},
 		{
 			SchoolID:          school.ID,
@@ -320,7 +308,6 @@ func seedData(gormDB *gorm.DB) {
 			WorkflowStages:    `[{"stage": 1, "role": "School Admin", "label": "School Admin Approval", "optional": false}]`,
 			RequiredFields:    `["audit_reason", "percentage"]`,
 			SlaHours:          96,
-			NeedsParentCosign: false,
 		},
 		{
 			SchoolID:          school.ID,
@@ -329,7 +316,6 @@ func seedData(gormDB *gorm.DB) {
 			WorkflowStages:    `[]`,
 			RequiredFields:    `[]`,
 			SlaHours:          0,
-			NeedsParentCosign: false,
 		},
 	}
 	for i := range docTypes {

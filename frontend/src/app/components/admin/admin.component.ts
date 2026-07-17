@@ -30,7 +30,7 @@ export class AdminComponent implements OnInit {
   userSearch: string = '';
   showUserModal: boolean = false;
   editingUser: any = null;
-  userForm: any = { name: '', email: '', role: 'Student', password: '', class_section: '', subject: '', phone: '', school_id: null };
+  userForm: any = { name: '', email: '', role: 'vocational', password: '', class_section: '', subject: '', phone: '', school_id: null };
   userError: string = '';
   userSuccess: string = '';
   deleteConfirmUserId: string = '';
@@ -41,7 +41,7 @@ export class AdminComponent implements OnInit {
   docTypeSearch: string = '';
   showDocTypeModal: boolean = false;
   editingDocType: any = null;
-  docTypeForm: any = { name: '', slug: '', workflow_stages: '[]', required_fields: '[]', sla_hours: 72, needs_parent_cosign: false, active: true };
+  docTypeForm: any = { name: '', slug: '', workflow_stages: '[]', required_fields: '[]', sla_hours: 72,  active: true };
   docTypeError: string = '';
   docTypeSuccess: string = '';
   deleteConfirmDocTypeId: string = '';
@@ -54,7 +54,7 @@ export class AdminComponent implements OnInit {
   schoolError: string = '';
   schoolSuccess: string = '';
 
-  roles = ['Student', 'Teacher', 'Principal', 'Admin', 'Parent'];
+  roles = ['DHE', 'School Admin', 'Teaching staff', 'non-teaching', 'vocational'];
 
   constructor(
     private api: ApiService,
@@ -139,7 +139,7 @@ export class AdminComponent implements OnInit {
 
   openCreateUser() {
     this.editingUser = null;
-    this.userForm = { name: '', email: '', role: 'Student', password: '', class_section: '', subject: '', phone: '', school_id: this.schools[0]?.ID || null };
+    this.userForm = { name: '', email: '', role: 'vocational', password: '', class_section: '', subject: '', phone: '', school_id: this.schools[0]?.ID || null };
     this.userError = '';
     this.showUserModal = true;
   }
@@ -262,7 +262,7 @@ export class AdminComponent implements OnInit {
     this.editingDocType = null;
     this.docTypeForm = {
       name: '', slug: '', workflow_stages: '[]', required_fields: '[]',
-      sla_hours: 72, needs_parent_cosign: false, active: true,
+      sla_hours: 72,  active: true,
       school_id: this.schools[0]?.ID || null
     };
     this.docTypeError = '';
@@ -277,7 +277,7 @@ export class AdminComponent implements OnInit {
       workflow_stages: dt.WorkflowStages,
       required_fields: dt.RequiredFields,
       sla_hours: dt.SlaHours,
-      needs_parent_cosign: dt.NeedsParentCosign,
+      needs_parent_cosign: dt.needs_parent_cosign,
       active: dt.Active
     };
     this.docTypeError = '';

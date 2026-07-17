@@ -35,24 +35,12 @@ func (s *service) GetUsers(actorID uuid.UUID) ([]UserResponse, error) {
 		if u.ID == actorID {
 			continue // skip self
 		}
-		if u.Role == "Parent" {
-			continue // Parents are disabled / not needed for now
-		}
-
-		switch actor.Role {
-		case "Principal":
-			// Principal sees everyone in school (excluding parents since they are skipped)
+		// DHE or SuperAdmin sees everyone
+		if actor.Role == "DHE" || actor.Role == "SuperAdmin" || actor.Role == "Admin" {
+			filtered = append(filtered, u)
+		} else {
+			// Everyone else sees people in their own school/office
 			if u.SchoolID != nil && actor.SchoolID != nil && *u.SchoolID == *actor.SchoolID {
-				filtered = append(filtered, u)
-			}
-		case "Teacher":
-			// Teacher sees principal, teachers, and students of their class section
-			if u.Role == "Principal" || u.Role == "Teacher" || (u.Role == "Student" && u.ClassSection == actor.ClassSection) {
-				filtered = append(filtered, u)
-			}
-		case "Student":
-			// Student only sees teachers and Principal (approvers)
-			if u.Role == "Teacher" || u.Role == "Principal" {
 				filtered = append(filtered, u)
 			}
 		}
