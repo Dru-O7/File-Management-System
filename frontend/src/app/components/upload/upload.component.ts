@@ -20,7 +20,7 @@ export class UploadComponent implements OnInit {
   selectedApproverId: string = '';
   title: string = '';
   description: string = '';
-  category: string = 'Assignment';
+  category: string = 'Staff Grievance';
   tags: string = '';
   priority: string = 'Normal';
   error: string = '';

@@ -63,54 +63,54 @@ func (r *repository) ListByUser(userID uuid.UUID, search string) ([]models.Docum
 
 	// Apply RBAC filters based on Greenwood High School roles
 	switch user.Role {
-	case "Admin":
-		// Admin can see everything within the school
+	case "DHE":
+		// DHE can see everything within the school
 		if user.SchoolID != nil {
 			query = query.Where("school_id = ?", *user.SchoolID)
 		}
 
-	case "Principal":
-		// Principal can see:
+	case "School Admin":
+		// School Admin can see:
 		// 1. Documents they uploaded/own
 		// 2. Documents where they are in history
-		// 3. All Circulars
+		// 3. All Official Circulars
 		query = query.Where(
-			"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR category = 'Circular'",
+			"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR category = 'Official Circular'",
 			userID, userID, userID,
 		)
 
-	case "Teacher":
-		// Teacher can see:
+	case "Teaching staff":
+		// Teaching staff can see:
 		// 1. Documents they uploaded/own
-		// 2. Documents in their class/section uploaded by students
+		// 2. Documents in their department uploaded by vocational staff
 		// 3. Documents where they are in history
-		// 4. Circulars targeted at their class or All
+		// 4. Official Circulars targeted at their department or All
 		if user.ClassSection != "" {
 			query = query.Where(
-				"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR uploader_id IN (SELECT id FROM users WHERE class_section = ? AND role = 'Student') OR (category = 'Circular' AND (target_class = 'All' OR target_class = ?))",
+				"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR uploader_id IN (SELECT id FROM users WHERE class_section = ? AND role = 'vocational') OR (category = 'Official Circular' AND (target_class = 'All' OR target_class = ?))",
 				userID, userID, userID, user.ClassSection, user.ClassSection,
 			)
 		} else {
 			query = query.Where(
-				"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR (category = 'Circular' AND target_class = 'All')",
+				"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR (category = 'Official Circular' AND target_class = 'All')",
 				userID, userID, userID,
 			)
 		}
 
-	case "Parent":
-		// Parent can see:
-		// 1. Documents uploaded by their children
+	case "non-teaching":
+		// non-teaching can see:
+		// 1. Documents uploaded by their subordinates (children logic repurposed if needed, but for now kept structurally similar)
 		// 2. Documents they own / pending review
-		// 3. Circulars targeted at their children's classes or All
+		// 3. Official Circulars targeted at their subordinates' departments or All
 		query = query.Where(
-			"uploader_id IN (SELECT child_id FROM parent_children WHERE parent_id = ?) OR current_owner_id = ? OR (category = 'Circular' AND (target_class = 'All' OR target_class IN (SELECT class_section FROM users WHERE id IN (SELECT child_id FROM parent_children WHERE parent_id = ?))))",
+			"uploader_id IN (SELECT child_id FROM parent_children WHERE parent_id = ?) OR current_owner_id = ? OR (category = 'Official Circular' AND (target_class = 'All' OR target_class IN (SELECT class_section FROM users WHERE id IN (SELECT child_id FROM parent_children WHERE parent_id = ?))))",
 			userID, userID, userID,
 		)
 
-	default: // Student or other fallback
-		// Student can only see their own submissions + relevant Circulars
+	default: // vocational or other fallback
+		// vocational can only see their own submissions + relevant Official Circulars
 		query = query.Where(
-			"uploader_id = ? OR current_owner_id = ? OR (category = 'Circular' AND (target_class = 'All' OR target_class = ?))",
+			"uploader_id = ? OR current_owner_id = ? OR (category = 'Official Circular' AND (target_class = 'All' OR target_class = ?))",
 			userID, userID, user.ClassSection,
 		)
 	}

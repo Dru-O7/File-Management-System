@@ -121,7 +121,7 @@ export class DetailsComponent implements OnInit {
         }
         this.loading = false;
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error('Failed to load document details:', err);
         this.loading = false;
       },
