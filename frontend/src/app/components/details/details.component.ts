@@ -463,6 +463,7 @@ export class DetailsComponent implements OnInit {
       next: (res) => {
         this.file = res.file;
         this.notes = res.notes || [];
+        this.history = res.history || [];
         this.activeYellowNote = this.notes.find(n => n.Type === 'Yellow' && !n.IsDiscarded);
         this.newNote = '';
 
@@ -590,9 +591,7 @@ export class DetailsComponent implements OnInit {
 
   publishYellowNote(note: any) {
     if (!note) return;
-    const sig = prompt('Enter your digital token signature prefix (optional, leave blank to auto-generate):');
-    if (sig === null) return; // User cancelled
-
+    const sig = ''; // Auto-generate signature
     this.api.publishNote(note.ID, sig).subscribe({
       next: () => {
         this.loadFileDetails(this.file.ID);

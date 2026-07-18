@@ -1854,38 +1854,59 @@ func (s *service) GetFileDetails(fileID, authenticatedUserID uuid.UUID) (*FileDe
 	if err := s.repo.(*repository).db.First(&user, "id = ?", authenticatedUserID).Error; err != nil {
 		return nil, errors.New("unauthorized")
 	}
-	hasAccess := false
-	if user.Role == "DHE" {
-		hasAccess = true
-	} else if file.CurrentOwnerID == authenticatedUserID || file.CreatorID == authenticatedUserID {
-		hasAccess = true
-	} else if file.SchoolID != nil && user.SchoolID != nil && *file.SchoolID == *user.SchoolID {
-		hasAccess = true
-	} else {
-		var noteCount int64
-		s.repo.(*repository).db.Model(&models.Note{}).Where("file_id = ? AND author_id = ?", fileID, authenticatedUserID).Count(&noteCount)
-		if noteCount > 0 {
-			hasAccess = true
-		}
-	}
+
+	isCurrentOwner := file.CurrentOwnerID == authenticatedUserID
+	isDHE := user.Role == "DHE"
+	isCreator := file.CreatorID == authenticatedUserID
+	isSameSchool := file.SchoolID != nil && user.SchoolID != nil && *file.SchoolID == *user.SchoolID
+
+	var noteCount int64
+	s.repo.(*repository).db.Model(&models.Note{}).Where("file_id = ? AND author_id = ?", fileID, authenticatedUserID).Count(&noteCount)
+
+	hasAccess := isCurrentOwner || isDHE || isCreator || isSameSchool || noteCount > 0
 
 	if !hasAccess {
 		return nil, errors.New("you are not authorized to view this file")
 	}
 
-	notes, err := s.repo.GetNotesByFileID(fileID)
-	if err != nil {
-		return nil, err
+	isWorkflowOnly := !isCurrentOwner && !isDHE
+
+	var noteResponses []NoteResponse
+	if !isWorkflowOnly {
+		notes, err := s.repo.GetNotesByFileID(fileID)
+		if err != nil {
+			return nil, err
+		}
+
+		noteResponses = make([]NoteResponse, len(notes))
+		for i, n := range notes {
+			noteResponses[i] = *s.toNoteResponse(&n)
+		}
+	} else {
+		noteResponses = []NoteResponse{}
 	}
 
-	noteResponses := make([]NoteResponse, len(notes))
-	for i, n := range notes {
-		noteResponses[i] = *s.toNoteResponse(&n)
+	fileResponse := *s.toFileResponse(file)
+
+	if isWorkflowOnly {
+		// Strip out description and receipts for past owners
+		fileResponse.Description = ""
+		fileResponse.Receipts = []DocumentResponse{}
+	}
+
+	histories, err := s.repo.GetHistoryByFileID(fileID)
+	historyDtos := []HistoryResponse{}
+	if err == nil {
+		historyDtos = make([]HistoryResponse, len(histories))
+		for i, h := range histories {
+			historyDtos[i] = *s.toHistoryResponse(&h)
+		}
 	}
 
 	return &FileDetailsResponse{
-		File:  *s.toFileResponse(file),
-		Notes: noteResponses,
+		File:    fileResponse,
+		Notes:   noteResponses,
+		History: historyDtos,
 	}, nil
 }
 
@@ -1898,6 +1919,21 @@ func (s *service) ForwardFile(fileID, authenticatedUserID uuid.UUID, req Forward
 	if file.CurrentOwnerID != authenticatedUserID {
 		return nil, errors.New("you are not the current owner of this file")
 	}
+
+	// Create workflow history for the file forward action
+	history := &models.WorkflowHistory{
+		ID:        uuid.New(),
+		SchoolID:  file.SchoolID,
+		FileID:    &fileID,
+		ActorID:   authenticatedUserID,
+		TargetID:  &req.TargetOwnerID,
+		Action:    "Forwarded",
+		Remarks:   "File forwarded to another user",
+		Stage:     1,
+		Version:   1,
+		EventType: "state_transition",
+	}
+	_ = s.repo.CreateHistory(history)
 
 	file.CurrentOwnerID = req.TargetOwnerID
 	file.Status = models.FileStatusInReview
@@ -2100,6 +2136,20 @@ func (s *service) CloseFile(fileID, authenticatedUserID uuid.UUID) (*FileRespons
 		return nil, err
 	}
 	
+	// Log workflow history
+	history := &models.WorkflowHistory{
+		ID:        uuid.New(),
+		SchoolID:  file.SchoolID,
+		FileID:    &fileID,
+		ActorID:   authenticatedUserID,
+		Action:    "Closed",
+		Remarks:   "File was closed by the user",
+		Stage:     1,
+		Version:   1,
+		EventType: "state_transition",
+	}
+	_ = s.repo.CreateHistory(history)
+	
 	return s.toFileResponse(file), nil
 }
 
@@ -2123,6 +2173,20 @@ func (s *service) ArchiveFile(fileID, authenticatedUserID uuid.UUID) (*FileRespo
 	if err := s.repo.SaveFile(file); err != nil {
 		return nil, err
 	}
+	
+	// Log workflow history
+	history := &models.WorkflowHistory{
+		ID:        uuid.New(),
+		SchoolID:  file.SchoolID,
+		FileID:    &fileID,
+		ActorID:   authenticatedUserID,
+		Action:    "Archived",
+		Remarks:   "File was archived by the user",
+		Stage:     1,
+		Version:   1,
+		EventType: "state_transition",
+	}
+	_ = s.repo.CreateHistory(history)
 	
 	return s.toFileResponse(file), nil
 }

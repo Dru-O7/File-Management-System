@@ -138,7 +138,8 @@ const (
 type WorkflowHistory struct {
 	ID         uuid.UUID      `gorm:"type:uuid;primary_key"`
 	SchoolID   *uuid.UUID     `gorm:"type:uuid"`
-	DocumentID uuid.UUID      `gorm:"type:uuid;not null"`
+	DocumentID uuid.UUID      `gorm:"type:uuid"` // Zero value (uuid.Nil) for files
+	FileID     *uuid.UUID     `gorm:"type:uuid"` // Nullable for documents
 	ActorID    uuid.UUID      `gorm:"type:uuid;not null"`
 	TargetID   *uuid.UUID     `gorm:"type:uuid"` // Nullable for end states
 	Action     WorkflowAction `gorm:"size:50;not null"`
@@ -153,7 +154,7 @@ type WorkflowHistory struct {
 	CreatedAt  time.Time
 
 	School   *School  `gorm:"foreignKey:SchoolID"`
-	Document Document `gorm:"foreignKey:DocumentID"`
+	Document Document `gorm:"foreignKey:DocumentID;constraint:-"`
 	Actor    User     `gorm:"foreignKey:ActorID"`
 	Target   *User    `gorm:"foreignKey:TargetID"`
 }

@@ -123,8 +123,9 @@ type NoteResponse struct {
 }
 
 type FileDetailsResponse struct {
-	File  FileResponse   `json:"file"`
-	Notes []NoteResponse `json:"notes"`
+	File    FileResponse      `json:"file"`
+	Notes   []NoteResponse    `json:"notes"`
+	History []HistoryResponse `json:"history"`
 }
 
 type CreateFileRequest struct {
