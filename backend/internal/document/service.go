@@ -1932,12 +1932,27 @@ func (s *service) AttachReceipt(fileID, authenticatedUserID uuid.UUID, receiptID
 	}
 
 	if receipt.FileID != nil {
-		return nil, errors.New("receipt is already attached to a file")
-	}
-
-	receipt.FileID = &fileID
-	if err := s.repo.Save(receipt); err != nil {
-		return nil, err
+		// Clone receipt to allow reusability across multiple files
+		newReceipt := *receipt
+		newReceipt.ID = uuid.New()
+		newReceipt.FileID = &fileID
+		if err := s.repo.Create(&newReceipt); err != nil {
+			return nil, err
+		}
+		// Copy attachments if any
+		var attachments []models.Attachment
+		s.repo.(*repository).db.Where("document_id = ?", receipt.ID).Find(&attachments)
+		for _, att := range attachments {
+			newAtt := att
+			newAtt.ID = uuid.New()
+			newAtt.DocumentID = newReceipt.ID
+			s.repo.(*repository).db.Create(&newAtt)
+		}
+	} else {
+		receipt.FileID = &fileID
+		if err := s.repo.Save(receipt); err != nil {
+			return nil, err
+		}
 	}
 
 	updatedFile, _ := s.repo.GetFileByID(fileID)

@@ -101,11 +101,20 @@ export class UploadComponent implements OnInit {
 
   onFileSelected(event: any) {
     this.selectedFile = event.target.files[0];
-    if (this.selectedFile && !this.title) {
-      // Auto-populate title with filename minus extension
-      const name = this.selectedFile.name;
-      const idx = name.lastIndexOf('.');
-      this.title = idx > 0 ? name.substring(0, idx) : name;
+    if (this.selectedFile) {
+      if (this.selectedFile.size > 25 * 1024 * 1024) {
+        this.error = 'File size exceeds the 25MB limit.';
+        this.selectedFile = null;
+        event.target.value = '';
+        return;
+      }
+      this.error = '';
+      if (!this.title) {
+        // Auto-populate title with filename minus extension
+        const name = this.selectedFile.name;
+        const idx = name.lastIndexOf('.');
+        this.title = idx > 0 ? name.substring(0, idx) : name;
+      }
     }
   }
 

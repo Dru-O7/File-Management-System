@@ -69,6 +69,10 @@ func (h *Handler) Upload(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "File is required"})
 	}
 
+	if fileHeader != nil && fileHeader.Size > 25*1024*1024 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "File size exceeds the 25MB limit"})
+	}
+
 	res, err := h.service.Upload(uploaderID, targetOwnerIDs, title, description, category, tags, priority, direction, targetClass, refDocID, fileHeader)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
