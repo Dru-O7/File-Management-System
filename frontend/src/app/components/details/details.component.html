@@ -501,39 +501,15 @@
                   {{ item.Action }}
                 </div>
                 <div class="text-xs text-[var(--text-secondary)] mb-2">
-                  By
-                  <strong class="text-[var(--text-primary)] font-medium">{{
-                    item.Actor.Name
-                  }}</strong>
+                  From
+                  <strong class="text-[var(--text-primary)] font-medium">{{ item.Actor.Name }}</strong>
                   <span *ngIf="item.Target">
                     &rarr; To
-                    <strong class="text-[var(--text-primary)] font-medium">{{
-                      item.Target.Name
-                    }}</strong></span
-                  >
-                </div>
-                <div class="text-[10px] text-[var(--text-muted)] mb-2">
-                  {{ item.CreatedAt | date: "short" }}
-                </div>
-                <div
-                  *ngIf="item.Remarks"
-                  class="text-xs text-[var(--text-secondary)] italic border-t border-[var(--border)] pt-2 mt-2 leading-relaxed"
-                >
-                  "{{ item.Remarks }}"
-                </div>
-                <div
-                  *ngIf="item.Signature"
-                  class="mt-3 border-t border-[var(--border)] pt-3 flex flex-col gap-1"
-                >
-                  <span
-                    class="block text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider"
-                    >Verification Key:</span
-                  >
-                  <span
-                    class="inline-block self-start px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-250 font-mono rounded text-[11px] shadow-2xs font-semibold"
-                  >
-                    {{ item.Signature }}
+                    <strong class="text-[var(--text-primary)] font-medium">{{ item.Target.Name }}</strong>
                   </span>
+                </div>
+                <div class="text-[10px] text-[var(--text-muted)]">
+                  {{ item.CreatedAt | date: "medium" }}
                 </div>
               </div>
             </div>
@@ -555,7 +531,7 @@
     </div>
 
     <!-- Dual Pane e-Office Workspace -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch min-h-[75vh]">
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch min-h-[75vh]">
       <!-- Left Pane: Attached Receipts / Document Preview -->
       <div class="flex flex-col border border-[var(--border)] rounded-xl bg-[var(--surface)] overflow-hidden">
         <!-- Receipts List Header / Switcher -->
@@ -835,6 +811,51 @@
           <div class="flex justify-end gap-2">
             <button class="btn-secondary !py-1 !px-3 text-xs" (click)="showForwardSelect=false">Cancel</button>
             <button class="btn-primary !py-1 !px-3 text-xs" (click)="submitFileForward()">Forward File</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Pane: Workflow History -->
+      <div class="flex flex-col border border-[var(--border)] rounded-xl bg-[var(--surface)] overflow-hidden">
+        <div class="p-4 border-b border-[var(--border)] bg-[var(--background)] flex justify-between items-center">
+          <div>
+            <h3 class="text-sm font-bold text-[var(--text-primary)]">Workflow History</h3>
+            <p class="text-[10px] text-[var(--text-muted)]">Timeline of file routing</p>
+          </div>
+        </div>
+        <div class="p-4 overflow-y-auto max-h-[60vh]">
+          <div *ngIf="!history || history.length === 0" class="text-xs text-[var(--text-muted)] italic text-center p-4">
+            No workflow history available.
+          </div>
+          <div class="relative pl-6 border-l border-[var(--border)] space-y-6" *ngIf="history && history.length > 0">
+            <div class="relative" *ngFor="let item of history">
+              <!-- Timeline indicator dot -->
+              <div
+                class="absolute -left-[31px] top-1.5 w-3.5 h-3.5 rounded-full border-[3px] border-white shadow-sm"
+                [ngClass]="{
+                  'bg-[var(--accent)]': item.Action === 'Forwarded' || item.Action === 'Created',
+                  'bg-slate-400': item.Action !== 'Forwarded' && item.Action !== 'Created'
+                }"
+              ></div>
+
+              <!-- Content card -->
+              <div class="bg-white border border-[var(--border)] rounded-lg p-3 shadow-xs">
+                <div class="font-bold text-[var(--text-primary)] text-sm mb-1">
+                  {{ item.Action }}
+                </div>
+                <div class="text-xs text-[var(--text-secondary)] mb-2">
+                  From
+                  <strong class="text-[var(--text-primary)] font-medium">{{ item.Actor?.Name || item.Actor?.name }}</strong>
+                  <span *ngIf="item.Target">
+                    &rarr; To
+                    <strong class="text-[var(--text-primary)] font-medium">{{ item.Target?.Name || item.Target?.name }}</strong>
+                  </span>
+                </div>
+                <div class="text-[10px] text-[var(--text-muted)]">
+                  {{ item.CreatedAt | date: "medium" }}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
