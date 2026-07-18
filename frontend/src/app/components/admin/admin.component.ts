@@ -15,6 +15,7 @@ import { AuthService } from '../../services/auth.service';
 export class AdminComponent implements OnInit {
   currentUser: any = {};
   activeSection: string = 'overview';
+  docDashboardTab: string = 'receipt_types';
   isSuperAdmin: boolean = false;  // true when at /superadmin
   loadingStats: boolean = false;
   loadingUsers: boolean = false;
@@ -35,7 +36,7 @@ export class AdminComponent implements OnInit {
   userSuccess: string = '';
   deleteConfirmUserId: string = '';
 
-  // Document Types
+  // Document Types (renamed to Receipt Types in user interface)
   docTypes: any[] = [];
   filteredDocTypes: any[] = [];
   docTypeSearch: string = '';
@@ -45,6 +46,28 @@ export class AdminComponent implements OnInit {
   docTypeError: string = '';
   docTypeSuccess: string = '';
   deleteConfirmDocTypeId: string = '';
+
+  // File Categories
+  fileCategories: any[] = [];
+  filteredFileCategories: any[] = [];
+  fileCategorySearch: string = '';
+  showFileCategoryModal: boolean = false;
+  editingFileCategory: any = null;
+  fileCategoryForm: any = { name: '', slug: '', active: true };
+  fileCategorySuccess: string = '';
+  fileCategoryError: string = '';
+  deleteConfirmFileCategoryId: string = '';
+
+  // File Sub-categories
+  fileSubCategories: any[] = [];
+  filteredFileSubCategories: any[] = [];
+  fileSubCategorySearch: string = '';
+  showFileSubCategoryModal: boolean = false;
+  editingFileSubCategory: any = null;
+  fileSubCategoryForm: any = { category: '', name: '', slug: '', active: true };
+  fileSubCategorySuccess: string = '';
+  fileSubCategoryError: string = '';
+  deleteConfirmFileSubCategoryId: string = '';
 
   // Schools
   schools: any[] = [];
@@ -83,6 +106,8 @@ export class AdminComponent implements OnInit {
     this.loadStats();
     this.loadUsers();
     this.loadDocTypes();
+    this.loadFileCategories();
+    this.loadFileSubCategories();
     if (this.isSuperAdmin) {
       this.loadSchools();
     }
@@ -105,6 +130,8 @@ export class AdminComponent implements OnInit {
     this.userError = ''; this.userSuccess = '';
     this.docTypeError = ''; this.docTypeSuccess = '';
     this.schoolError = ''; this.schoolSuccess = '';
+    this.fileCategoryError = ''; this.fileCategorySuccess = '';
+    this.fileSubCategoryError = ''; this.fileSubCategorySuccess = '';
   }
 
   logout() {
@@ -315,7 +342,7 @@ export class AdminComponent implements OnInit {
   saveDocType() {
     this.docTypeError = '';
     if (!this.docTypeForm.name) {
-      this.docTypeError = 'Document type name is required.';
+      this.docTypeError = 'Receipt type name is required.';
       return;
     }
 
@@ -354,7 +381,7 @@ export class AdminComponent implements OnInit {
       this.api.adminUpdateDocumentType(this.editingDocType.ID, payload).subscribe({
         next: () => {
           this.showDocTypeModal = false;
-          this.docTypeSuccess = 'Document type updated.';
+          this.docTypeSuccess = 'Receipt type updated.';
           this.loadDocTypes();
           this.loadStats();
           setTimeout(() => this.docTypeSuccess = '', 3000);
@@ -365,7 +392,7 @@ export class AdminComponent implements OnInit {
       this.api.adminCreateDocumentType(payload).subscribe({
         next: () => {
           this.showDocTypeModal = false;
-          this.docTypeSuccess = 'Document type created.';
+          this.docTypeSuccess = 'Receipt type created.';
           this.loadDocTypes();
           this.loadStats();
           setTimeout(() => this.docTypeSuccess = '', 3000);
@@ -383,7 +410,7 @@ export class AdminComponent implements OnInit {
     this.api.adminDeleteDocumentType(id).subscribe({
       next: () => {
         this.deleteConfirmDocTypeId = '';
-        this.docTypeSuccess = 'Document type deleted.';
+        this.docTypeSuccess = 'Receipt type deleted.';
         this.loadDocTypes();
         this.loadStats();
         setTimeout(() => this.docTypeSuccess = '', 3000);
@@ -423,6 +450,229 @@ export class AdminComponent implements OnInit {
       },
       error: (e) => this.schoolError = e.error?.error || 'Failed to update school.'
     });
+  }
+
+  // ── File Categories ────────────────────────────────────────────────────────
+
+  loadFileCategories() {
+    const stored = localStorage.getItem('file_categories');
+    if (stored) {
+      try {
+        this.fileCategories = JSON.parse(stored);
+      } catch (e) {
+        this.initializeDefaultFileCategories();
+      }
+    } else {
+      this.initializeDefaultFileCategories();
+    }
+    this.applyFileCategoryFilter();
+  }
+
+  initializeDefaultFileCategories() {
+    this.fileCategories = [
+      {ID: 'cat-admin', Name: 'Administration', Slug: 'administration', Active: true},
+      {ID: 'cat-hr', Name: 'Human Resources', Slug: 'human-resources', Active: true},
+      {ID: 'cat-finance', Name: 'Finance', Slug: 'finance', Active: true},
+      {ID: 'cat-academic', Name: 'Academic', Slug: 'academic', Active: true},
+      {ID: 'cat-infra', Name: 'Infrastructure', Slug: 'infrastructure', Active: true},
+      {ID: 'cat-student', Name: 'Student Affairs', Slug: 'student-affairs', Active: true}
+    ];
+    localStorage.setItem('file_categories', JSON.stringify(this.fileCategories));
+  }
+
+  applyFileCategoryFilter() {
+    const q = this.fileCategorySearch.toLowerCase().trim();
+    this.filteredFileCategories = q
+      ? this.fileCategories.filter(c => c.Name.toLowerCase().includes(q) || c.Slug.toLowerCase().includes(q))
+      : [...this.fileCategories];
+  }
+
+  openCreateFileCategory() {
+    this.editingFileCategory = null;
+    this.fileCategoryForm = { name: '', slug: '', active: true };
+    this.fileCategoryError = '';
+    this.showFileCategoryModal = true;
+  }
+
+  openEditFileCategory(cat: any) {
+    this.editingFileCategory = cat;
+    this.fileCategoryForm = { name: cat.Name, slug: cat.Slug, active: cat.Active };
+    this.fileCategoryError = '';
+    this.showFileCategoryModal = true;
+  }
+
+  saveFileCategory() {
+    this.fileCategoryError = '';
+    const name = this.fileCategoryForm.name.trim();
+    if (!name) {
+      this.fileCategoryError = 'Category name is required.';
+      return;
+    }
+    const slug = this.fileCategoryForm.slug.trim() || name.toLowerCase().replace(/\s+/g, '-');
+
+    if (this.editingFileCategory) {
+      const idx = this.fileCategories.findIndex(c => c.ID === this.editingFileCategory.ID);
+      if (idx !== -1) {
+        this.fileCategories[idx] = {
+          ...this.fileCategories[idx],
+          Name: name,
+          Slug: slug,
+          Active: this.fileCategoryForm.active
+        };
+      }
+      this.fileCategorySuccess = 'File category updated successfully.';
+    } else {
+      const newCat = {
+        ID: 'cat-' + Date.now().toString(36),
+        Name: name,
+        Slug: slug,
+        Active: this.fileCategoryForm.active
+      };
+      this.fileCategories.push(newCat);
+      this.fileCategorySuccess = 'File category created successfully.';
+    }
+
+    localStorage.setItem('file_categories', JSON.stringify(this.fileCategories));
+    this.showFileCategoryModal = false;
+    this.applyFileCategoryFilter();
+    setTimeout(() => this.fileCategorySuccess = '', 3000);
+  }
+
+  confirmDeleteFileCategory(id: string) {
+    this.deleteConfirmFileCategoryId = id;
+  }
+
+  deleteFileCategory(id: string) {
+    this.fileCategories = this.fileCategories.filter(c => c.ID !== id);
+    localStorage.setItem('file_categories', JSON.stringify(this.fileCategories));
+    this.deleteConfirmFileCategoryId = '';
+    this.fileCategorySuccess = 'File category deleted.';
+    this.applyFileCategoryFilter();
+    setTimeout(() => this.fileCategorySuccess = '', 3000);
+  }
+
+  // ── File Sub-categories ─────────────────────────────────────────────────────
+
+  loadFileSubCategories() {
+    const stored = localStorage.getItem('file_sub_categories');
+    if (stored) {
+      try {
+        this.fileSubCategories = JSON.parse(stored);
+      } catch (e) {
+        this.initializeDefaultFileSubCategories();
+      }
+    } else {
+      this.initializeDefaultFileSubCategories();
+    }
+    this.applyFileSubCategoryFilter();
+  }
+
+  initializeDefaultFileSubCategories() {
+    this.fileSubCategories = [
+      {ID: "sub-policy", Category: "Administration", Name: "Policy", Slug: "policy", Active: true},
+      {ID: "sub-meetings", Category: "Administration", Name: "Meetings", Slug: "meetings", Active: true},
+      {ID: "sub-audit-admin", Category: "Administration", Name: "Audit", Slug: "audit", Active: true},
+      {ID: "sub-general", Category: "Administration", Name: "General", Slug: "general", Active: true},
+      {ID: "sub-recruitment", Category: "Human Resources", Name: "Recruitment", Slug: "recruitment", Active: true},
+      {ID: "sub-payroll", Category: "Human Resources", Name: "Payroll", Slug: "payroll", Active: true},
+      {ID: "sub-grievance", Category: "Human Resources", Name: "Grievance", Slug: "grievance", Active: true},
+      {ID: "sub-leave", Category: "Human Resources", Name: "Leave", Slug: "leave", Active: true},
+      {ID: "sub-budget", Category: "Finance", Name: "Budget", Slug: "budget", Active: true},
+      {ID: "sub-procure", Category: "Finance", Name: "Procurement", Slug: "procurement", Active: true},
+      {ID: "sub-reimburse", Category: "Finance", Name: "Reimbursement", Slug: "reimbursement", Active: true},
+      {ID: "sub-audit-fin", Category: "Finance", Name: "Audit", Slug: "audit", Active: true},
+      {ID: "sub-curriculum", Category: "Academic", Name: "Curriculum", Slug: "curriculum", Active: true},
+      {ID: "sub-exams", Category: "Academic", Name: "Exams", Slug: "exams", Active: true},
+      {ID: "sub-admissions", Category: "Academic", Name: "Admissions", Slug: "admissions", Active: true},
+      {ID: "sub-results", Category: "Academic", Name: "Results", Slug: "results", Active: true},
+      {ID: "sub-maint", Category: "Infrastructure", Name: "Maintenance", Slug: "maintenance", Active: true},
+      {ID: "sub-it", Category: "Infrastructure", Name: "IT Support", Slug: "it-support", Active: true},
+      {ID: "sub-civil", Category: "Infrastructure", Name: "Civil Works", Slug: "civil-works", Active: true},
+      {ID: "sub-complaints", Category: "Infrastructure", Name: "Complaints", Slug: "complaints", Active: true},
+      {ID: "sub-disc", Category: "Student Affairs", Name: "Disciplinary", Slug: "disciplinary", Active: true},
+      {ID: "sub-events", Category: "Student Affairs", Name: "Events", Slug: "events", Active: true},
+      {ID: "sub-scholar", Category: "Student Affairs", Name: "Scholarships", "Slug": "scholarships", "Active": true},
+      {ID: "sub-hostel", Category: "Student Affairs", Name: "Hostel", Slug: "hostel", Active: true}
+    ];
+    localStorage.setItem('file_sub_categories', JSON.stringify(this.fileSubCategories));
+  }
+
+  applyFileSubCategoryFilter() {
+    const q = this.fileSubCategorySearch.toLowerCase().trim();
+    this.filteredFileSubCategories = q
+      ? this.fileSubCategories.filter(s => s.Name.toLowerCase().includes(q) || s.Category.toLowerCase().includes(q) || s.Slug.toLowerCase().includes(q))
+      : [...this.fileSubCategories];
+  }
+
+  openCreateFileSubCategory() {
+    this.editingFileSubCategory = null;
+    this.fileSubCategoryForm = { category: this.fileCategories[0]?.Name || '', name: '', slug: '', active: true };
+    this.fileSubCategoryError = '';
+    this.showFileSubCategoryModal = true;
+  }
+
+  openEditFileSubCategory(sub: any) {
+    this.editingFileSubCategory = sub;
+    this.fileSubCategoryForm = { category: sub.Category, name: sub.Name, slug: sub.Slug, active: sub.Active };
+    this.fileSubCategoryError = '';
+    this.showFileSubCategoryModal = true;
+  }
+
+  saveFileSubCategory() {
+    this.fileSubCategoryError = '';
+    const name = this.fileSubCategoryForm.name.trim();
+    const category = this.fileSubCategoryForm.category.trim();
+    if (!name) {
+      this.fileSubCategoryError = 'Sub-category name is required.';
+      return;
+    }
+    if (!category) {
+      this.fileSubCategoryError = 'Parent Category is required.';
+      return;
+    }
+    const slug = this.fileSubCategoryForm.slug.trim() || name.toLowerCase().replace(/\s+/g, '-');
+
+    if (this.editingFileSubCategory) {
+      const idx = this.fileSubCategories.findIndex(s => s.ID === this.editingFileSubCategory.ID);
+      if (idx !== -1) {
+        this.fileSubCategories[idx] = {
+          ...this.fileSubCategories[idx],
+          Category: category,
+          Name: name,
+          Slug: slug,
+          Active: this.fileSubCategoryForm.active
+        };
+      }
+      this.fileSubCategorySuccess = 'File sub-category updated successfully.';
+    } else {
+      const newSub = {
+        ID: 'sub-' + Date.now().toString(36),
+        Category: category,
+        Name: name,
+        Slug: slug,
+        Active: this.fileSubCategoryForm.active
+      };
+      this.fileSubCategories.push(newSub);
+      this.fileSubCategorySuccess = 'File sub-category created successfully.';
+    }
+
+    localStorage.setItem('file_sub_categories', JSON.stringify(this.fileSubCategories));
+    this.showFileSubCategoryModal = false;
+    this.applyFileSubCategoryFilter();
+    setTimeout(() => this.fileSubCategorySuccess = '', 3000);
+  }
+
+  confirmDeleteFileSubCategory(id: string) {
+    this.deleteConfirmFileSubCategoryId = id;
+  }
+
+  deleteFileSubCategory(id: string) {
+    this.fileSubCategories = this.fileSubCategories.filter(s => s.ID !== id);
+    localStorage.setItem('file_sub_categories', JSON.stringify(this.fileSubCategories));
+    this.deleteConfirmFileSubCategoryId = '';
+    this.fileSubCategorySuccess = 'File sub-category deleted.';
+    this.applyFileSubCategoryFilter();
+    setTimeout(() => this.fileSubCategorySuccess = '', 3000);
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

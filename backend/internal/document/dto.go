@@ -53,7 +53,7 @@ type DocumentResponse struct {
 
 type HistoryResponse struct {
 	ID         uuid.UUID             `json:"ID"`
-	DocumentID uuid.UUID             `json:"DocumentID"`
+	DocumentID *uuid.UUID            `json:"DocumentID"`
 	ActorID    uuid.UUID             `json:"ActorID"`
 	TargetID   *uuid.UUID            `json:"TargetID"`
 	Action     models.WorkflowAction `json:"Action"`
@@ -72,7 +72,7 @@ type DocumentDetailsResponse struct {
 
 type UserHistoryEntry struct {
 	ID            uuid.UUID             `json:"ID"`
-	DocumentID    uuid.UUID             `json:"DocumentID"`
+	DocumentID    *uuid.UUID            `json:"DocumentID"`
 	ActorID       uuid.UUID             `json:"ActorID"`
 	TargetID      *uuid.UUID            `json:"TargetID"`
 	Action        models.WorkflowAction `json:"Action"`

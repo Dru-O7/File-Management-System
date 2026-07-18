@@ -246,7 +246,7 @@ func (s *service) Upload(uploaderID uuid.UUID, targetOwnerIDs []uuid.UUID, title
 	history := &models.WorkflowHistory{
 		ID:         uuid.New(),
 		SchoolID:   schoolID,
-		DocumentID: docID,
+		DocumentID: &docID,
 		ActorID:    uploaderID,
 		TargetID:   &assignedOwnerID,
 		Action:     models.ActionUploaded,
@@ -570,14 +570,14 @@ func (s *service) Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, t
 	oldHistories, _ := s.repo.GetHistoryByDocumentID(oldDoc.ID)
 	for _, h := range oldHistories {
 		h.ID = uuid.New()
-		h.DocumentID = newDocID
+		h.DocumentID = &newDocID
 		_ = s.repo.CreateHistory(&h)
 	}
 
 	history := &models.WorkflowHistory{
 		ID:         uuid.New(),
 		SchoolID:   newDoc.SchoolID,
-		DocumentID: newDocID,
+		DocumentID: &newDocID,
 		ActorID:    authenticatedUserID,
 		TargetID:   &targetOwnerID,
 		Action:     wfAction,
@@ -593,7 +593,7 @@ func (s *service) Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, t
 	oldHistory := &models.WorkflowHistory{
 		ID:         uuid.New(),
 		SchoolID:   oldDoc.SchoolID,
-		DocumentID: oldDoc.ID,
+		DocumentID: &oldDoc.ID,
 		ActorID:    authenticatedUserID,
 		TargetID:   &targetOwnerID,
 		Action:     wfAction,
@@ -851,7 +851,7 @@ func (s *service) TakeAction(docID, authenticatedUserID uuid.UUID, req ActionReq
 	history := &models.WorkflowHistory{
 		ID:         uuid.New(),
 		SchoolID:   doc.SchoolID,
-		DocumentID: doc.ID,
+		DocumentID: &doc.ID,
 		ActorID:    authenticatedUserID,
 		TargetID:   req.TargetID,
 		Action:     wfAction,
@@ -1061,7 +1061,7 @@ func (s *service) Recall(docID, authenticatedUserID uuid.UUID) (*DocumentRespons
 	history := &models.WorkflowHistory{
 		ID:         uuid.New(),
 		SchoolID:   doc.SchoolID,
-		DocumentID: doc.ID,
+		DocumentID: &doc.ID,
 		ActorID:    authenticatedUserID,
 		Action:     "Recalled",
 		Remarks:    "File recalled back to draft/revision stage by uploader",
@@ -1103,7 +1103,7 @@ func (s *service) AppendNote(docID, authenticatedUserID uuid.UUID, note string, 
 	history := &models.WorkflowHistory{
 		ID:         uuid.New(),
 		SchoolID:   doc.SchoolID,
-		DocumentID: doc.ID,
+		DocumentID: &doc.ID,
 		ActorID:    authenticatedUserID,
 		Action:     "Note Added",
 		Remarks:    note,
@@ -1141,7 +1141,7 @@ func (s *service) SaveDraft(docID, authenticatedUserID uuid.UUID, draft string) 
 	history := &models.WorkflowHistory{
 		ID:         uuid.New(),
 		SchoolID:   doc.SchoolID,
-		DocumentID: doc.ID,
+		DocumentID: &doc.ID,
 		ActorID:    authenticatedUserID,
 		Action:     "Draft Updated",
 		Remarks:    "Updated draft letter/order template",
@@ -1243,10 +1243,11 @@ func (s *service) GetReports(schoolID uuid.UUID) (interface{}, error) {
 		return nil, err
 	}
 
-	// 1. Avg turnaround time calculations
 	docHistories := make(map[uuid.UUID][]models.WorkflowHistory)
 	for _, h := range histories {
-		docHistories[h.DocumentID] = append(docHistories[h.DocumentID], h)
+		if h.DocumentID != nil {
+			docHistories[*h.DocumentID] = append(docHistories[*h.DocumentID], h)
+		}
 	}
 
 	var totalDuration time.Duration

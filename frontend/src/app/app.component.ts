@@ -46,6 +46,16 @@ export class AppComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    // Load theme preference from localStorage on initialization
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else if (savedTheme === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark');
+    }
+
     this.authService.currentUser$.subscribe(user => {
       if (user) {
         this.startNotificationsPolling();
@@ -232,7 +242,8 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   toggleTheme() {
-    document.documentElement.classList.toggle('dark');
+    const isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
   }
 
   toggleSidebar() {

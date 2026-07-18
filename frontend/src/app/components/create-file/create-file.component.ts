@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -12,7 +12,7 @@ import { AuthService } from '../../services/auth.service';
   templateUrl: './create-file.component.html',
   styleUrls: ['./create-file.component.css']
 })
-export class CreateFileComponent {
+export class CreateFileComponent implements OnInit {
   title: string = '';
   description: string = '';
   category: string = '';
@@ -21,24 +21,8 @@ export class CreateFileComponent {
   error: string = '';
   loading: boolean = false;
 
-  categories = [
-    'Administration',
-    'Human Resources',
-    'Finance',
-    'Academic',
-    'Infrastructure',
-    'Student Affairs'
-  ];
-
-  subCategories: Record<string, string[]> = {
-    'Administration': ['Policy', 'Meetings', 'Audit', 'General'],
-    'Human Resources': ['Recruitment', 'Payroll', 'Grievance', 'Leave'],
-    'Finance': ['Budget', 'Procurement', 'Reimbursement', 'Audit'],
-    'Academic': ['Curriculum', 'Exams', 'Admissions', 'Results'],
-    'Infrastructure': ['Maintenance', 'IT Support', 'Civil Works', 'Complaints'],
-    'Student Affairs': ['Disciplinary', 'Events', 'Scholarships', 'Hostel']
-  };
-
+  categories: string[] = [];
+  subCategories: Record<string, string[]> = {};
   availableSubCategories: string[] = [];
 
   constructor(
@@ -46,6 +30,58 @@ export class CreateFileComponent {
     private auth: AuthService,
     private router: Router
   ) {}
+
+  ngOnInit() {
+    this.loadCategoriesFromStorage();
+  }
+
+  loadCategoriesFromStorage() {
+    // Categories
+    const storedCats = localStorage.getItem('file_categories');
+    if (storedCats) {
+      try {
+        const parsed = JSON.parse(storedCats);
+        this.categories = parsed.filter((c: any) => c.Active !== false).map((c: any) => c.Name);
+      } catch (e) {
+        this.categories = ['Administration', 'Human Resources', 'Finance', 'Academic', 'Infrastructure', 'Student Affairs'];
+      }
+    } else {
+      this.categories = ['Administration', 'Human Resources', 'Finance', 'Academic', 'Infrastructure', 'Student Affairs'];
+    }
+
+    // Sub-categories
+    const storedSubCats = localStorage.getItem('file_sub_categories');
+    if (storedSubCats) {
+      try {
+        const parsed = JSON.parse(storedSubCats);
+        const record: Record<string, string[]> = {};
+        parsed.forEach((sub: any) => {
+          if (sub.Active !== false) {
+            if (!record[sub.Category]) {
+              record[sub.Category] = [];
+            }
+            record[sub.Category].push(sub.Name);
+          }
+        });
+        this.subCategories = record;
+      } catch (e) {
+        this.loadDefaultSubCategories();
+      }
+    } else {
+      this.loadDefaultSubCategories();
+    }
+  }
+
+  loadDefaultSubCategories() {
+    this.subCategories = {
+      'Administration': ['Policy', 'Meetings', 'Audit', 'General'],
+      'Human Resources': ['Recruitment', 'Payroll', 'Grievance', 'Leave'],
+      'Finance': ['Budget', 'Procurement', 'Reimbursement', 'Audit'],
+      'Academic': ['Curriculum', 'Exams', 'Admissions', 'Results'],
+      'Infrastructure': ['Maintenance', 'IT Support', 'Civil Works', 'Complaints'],
+      'Student Affairs': ['Disciplinary', 'Events', 'Scholarships', 'Hostel']
+    };
+  }
 
   onCategoryChange() {
     this.availableSubCategories = this.subCategories[this.category] || [];

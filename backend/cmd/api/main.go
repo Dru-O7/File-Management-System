@@ -137,7 +137,7 @@ func startSLAScheduler(db *gorm.DB) {
 			history := models.WorkflowHistory{
 				ID:         uuid.New(),
 				SchoolID:   doc.SchoolID,
-				DocumentID: doc.ID,
+				DocumentID: &doc.ID,
 				ActorID:    uuid.Nil, // System action
 				TargetID:   &principal.ID,
 				Action:     "Escalated",

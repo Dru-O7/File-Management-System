@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { HttpClient } from '@angular/common/http';
+import { forkJoin, of } from 'rxjs';
 
 @Component({
   selector: 'app-profile',
@@ -31,16 +32,15 @@ export class ProfileComponent implements OnInit {
   showNewPassword: boolean = false;
   showConfirmPassword: boolean = false;
 
-  // Phone
-  newPhone: string = '';
+  // Theme & Avatar tracker
+  currentTheme: string = 'light';
+  originalTheme: string = 'light';
+  originalAvatar: string | null = null;
 
   // Status flags
-  savingPassword: boolean = false;
-  savingPhone: boolean = false;
-  passwordSuccess: string = '';
-  passwordError: string = '';
-  phoneSuccess: string = '';
-  phoneError: string = '';
+  saving: boolean = false;
+  saveSuccess: string = '';
+  saveError: string = '';
 
   private avatarColors = [
     '#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'
@@ -59,7 +59,8 @@ export class ProfileComponent implements OnInit {
         return;
       }
       this.currentUser = user;
-      this.newPhone = user.Phone || user.phone || '';
+      this.avatarPreview = user.Avatar || user.avatar || null;
+      this.originalAvatar = this.avatarPreview;
       const name: string = user.Name || user.name || '';
       const words = name.trim().split(' ').filter((w: string) => w.length > 0);
       this.avatarInitials = words.length >= 2
@@ -68,6 +69,10 @@ export class ProfileComponent implements OnInit {
       const colorIndex = name.charCodeAt(0) % this.avatarColors.length;
       this.avatarColor = this.avatarColors[colorIndex];
     });
+
+    // Initialize theme preference
+    this.currentTheme = localStorage.getItem('theme') || 'light';
+    this.originalTheme = this.currentTheme;
   }
 
   onAvatarFileChange(event: Event): void {
@@ -85,68 +90,97 @@ export class ProfileComponent implements OnInit {
     reader.readAsDataURL(file);
   }
 
-  resetPassword(): void {
-    this.passwordError = '';
-    this.passwordSuccess = '';
+  setTheme(theme: string): void {
+    this.currentTheme = theme;
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }
 
-    if (!this.currentPassword || !this.newPassword || !this.confirmPassword) {
-      this.passwordError = 'All password fields are required.';
-      return;
-    }
-    if (this.newPassword !== this.confirmPassword) {
-      this.passwordError = 'New password and confirm password do not match.';
-      return;
-    }
-    if (this.newPassword.length < 8) {
-      this.passwordError = 'New password must be at least 8 characters.';
+  saveChanges(): void {
+    this.saveError = '';
+    this.saveSuccess = '';
+
+    const isThemeChanged = this.currentTheme !== this.originalTheme;
+    const isAvatarChanged = this.avatarPreview !== this.originalAvatar;
+    const isPasswordAttempt = !!(this.currentPassword || this.newPassword || this.confirmPassword);
+
+    if (!isThemeChanged && !isAvatarChanged && !isPasswordAttempt) {
+      this.saveError = 'No changes detected to save.';
       return;
     }
 
-    this.savingPassword = true;
-    const userId = this.currentUser?.ID || this.currentUser?.id;
-    this.http.put(`${this.apiUrl}/profile/password`, {
-      current_password: this.currentPassword,
-      new_password: this.newPassword
-    }).subscribe({
-      next: () => {
-        this.savingPassword = false;
-        this.passwordSuccess = 'Password updated successfully.';
+    if (isPasswordAttempt) {
+      if (!this.currentPassword || !this.newPassword || !this.confirmPassword) {
+        this.saveError = 'All password fields are required to update password.';
+        return;
+      }
+      if (this.newPassword !== this.confirmPassword) {
+        this.saveError = 'New password and confirm password do not match.';
+        return;
+      }
+      if (this.newPassword.length < 8) {
+        this.saveError = 'New password must be at least 8 characters.';
+        return;
+      }
+    }
+
+    this.saving = true;
+
+    // Save Theme to localStorage
+    if (isThemeChanged) {
+      localStorage.setItem('theme', this.currentTheme);
+      this.originalTheme = this.currentTheme;
+    }
+
+    // Save Avatar to localStorage & currentUser state
+    if (isAvatarChanged) {
+      const updatedUser = { 
+        ...this.currentUser, 
+        Avatar: this.avatarPreview,
+        avatar: this.avatarPreview
+      };
+      this.currentUser = updatedUser;
+      this.originalAvatar = this.avatarPreview;
+      this.auth.setCurrentUser(updatedUser, this.auth.getToken()!);
+    }
+
+    const passwordReq = (isPasswordAttempt
+      ? this.http.put(`${this.apiUrl}/profile/password`, {
+          current_password: this.currentPassword,
+          new_password: this.newPassword
+        })
+      : of(null)) as any;
+
+    passwordReq.subscribe({
+      next: (res: any) => {
+        this.saving = false;
+        
+        let msg = 'Profile updated successfully.';
+        if (isPasswordAttempt) {
+          msg = 'Password updated successfully.';
+        } else if (isAvatarChanged && isThemeChanged) {
+          msg = 'Profile photo and theme preference updated.';
+        } else if (isAvatarChanged) {
+          msg = 'Profile photo updated successfully.';
+        } else if (isThemeChanged) {
+          msg = 'Theme preference updated successfully.';
+        }
+        
+        this.saveSuccess = msg;
+
+        // Reset password fields
         this.currentPassword = '';
         this.newPassword = '';
         this.confirmPassword = '';
-        setTimeout(() => this.passwordSuccess = '', 4000);
+
+        setTimeout(() => this.saveSuccess = '', 4000);
       },
-      error: (err) => {
-        this.savingPassword = false;
-        this.passwordError = err.error?.error || 'Failed to update password.';
-      }
-    });
-  }
-
-  updatePhone(): void {
-    this.phoneError = '';
-    this.phoneSuccess = '';
-
-    if (!this.newPhone.trim()) {
-      this.phoneError = 'Phone number cannot be empty.';
-      return;
-    }
-
-    this.savingPhone = true;
-    this.http.put(`${this.apiUrl}/profile/phone`, {
-      phone: this.newPhone.trim()
-    }).subscribe({
-      next: (updatedUser: any) => {
-        this.savingPhone = false;
-        this.phoneSuccess = 'Mobile number updated successfully.';
-        // Update the local user store
-        const user = { ...this.currentUser, Phone: this.newPhone.trim(), phone: this.newPhone.trim() };
-        this.auth.setCurrentUser(user, this.auth.getToken()!);
-        setTimeout(() => this.phoneSuccess = '', 4000);
-      },
-      error: (err) => {
-        this.savingPhone = false;
-        this.phoneError = err.error?.error || 'Failed to update mobile number.';
+      error: (err: any) => {
+        this.saving = false;
+        this.saveError = err.error?.error || 'Failed to save changes. Please check current password.';
       }
     });
   }

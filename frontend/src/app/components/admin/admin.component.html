@@ -4,18 +4,16 @@
   <main class="main-content">
 
     <!-- Top Bar -->
-    <div class="topbar">
+    <div class="topbar" *ngIf="activeSection !== 'doctypes'">
       <div>
         <div class="topbar-title">
           {{ activeSection === 'overview' ? 'System Overview' :
           activeSection === 'users' ? 'User Management' :
-          activeSection === 'doctypes' ? 'Document Types' :
           'Schools' }}
         </div>
         <div class="topbar-sub">
           {{ activeSection === 'overview' ? 'System-wide stats and health at a glance' :
           activeSection === 'users' ? 'Create, edit, and manage all user accounts' :
-          activeSection === 'doctypes' ? 'Configure document types and workflow stages' :
           'Manage school profiles and settings' }}
         </div>
       </div>
@@ -25,12 +23,6 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
           Add User
-        </button>
-        <button class="btn-primary" *ngIf="activeSection==='doctypes'" (click)="openCreateDocType()">
-          <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          New Document Type
         </button>
       </div>
     </div>
@@ -267,34 +259,164 @@
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════ -->
-      <!-- SECTION: DOCUMENT TYPES -->
+      <!-- SECTION: DOCUMENT DASHBOARD (Receipt Types, File Categories, Sub-categories) -->
       <!-- ══════════════════════════════════════════════════════════════ -->
       <div *ngIf="activeSection==='doctypes'">
-        <!-- Loader -->
-        <div *ngIf="loadingDocTypes" class="py-16 text-center">
-          <div
-            class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[var(--primary)] border-t-transparent mb-4">
-          </div>
-          <p class="text-sm font-semibold text-[var(--text-secondary)]">Loading document types...</p>
+
+        <!-- Tabs Navigation -->
+        <div class="doc-dashboard-tabs" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 20px;">
+          <button 
+            (click)="docDashboardTab = 'receipt_types'" 
+            class="px-4 py-2 text-xs font-bold transition-all border-0 bg-transparent cursor-pointer"
+            [style.border-bottom]="docDashboardTab === 'receipt_types' ? '2px solid var(--primary)' : 'none'"
+            [style.color]="docDashboardTab === 'receipt_types' ? 'var(--primary-active)' : 'var(--text-secondary)'"
+          >
+            Receipt Types
+          </button>
+          <button 
+            (click)="docDashboardTab = 'file_categories'" 
+            class="px-4 py-2 text-xs font-bold transition-all border-0 bg-transparent cursor-pointer"
+            [style.border-bottom]="docDashboardTab === 'file_categories' ? '2px solid var(--primary)' : 'none'"
+            [style.color]="docDashboardTab === 'file_categories' ? 'var(--primary-active)' : 'var(--text-secondary)'"
+          >
+            File Categories
+          </button>
+          <button 
+            (click)="docDashboardTab = 'file_subcategories'" 
+            class="px-4 py-2 text-xs font-bold transition-all border-0 bg-transparent cursor-pointer"
+            [style.border-bottom]="docDashboardTab === 'file_subcategories' ? '2px solid var(--primary)' : 'none'"
+            [style.color]="docDashboardTab === 'file_subcategories' ? 'var(--primary-active)' : 'var(--text-secondary)'"
+          >
+            File Sub-categories
+          </button>
         </div>
 
-        <ng-container *ngIf="!loadingDocTypes">
-          <div *ngIf="docTypeSuccess" class="alert alert-success" style="margin-bottom:16px;">{{docTypeSuccess}}</div>
-          <div *ngIf="docTypeError && !showDocTypeModal" class="alert alert-error" style="margin-bottom:16px;">
-            {{docTypeError}}</div>
+        <!-- ───────────────────────────────────────────────────────────── -->
+        <!-- SUB-SECTION: RECEIPT TYPES -->
+        <!-- ───────────────────────────────────────────────────────────── -->
+        <div *ngIf="docDashboardTab === 'receipt_types'">
+          <!-- Loader -->
+          <div *ngIf="loadingDocTypes" class="py-16 text-center">
+            <div
+              class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[var(--primary)] border-t-transparent mb-4">
+            </div>
+            <p class="text-sm font-semibold text-[var(--text-secondary)]">Loading receipt types...</p>
+          </div>
+
+          <ng-container *ngIf="!loadingDocTypes">
+            <div *ngIf="docTypeSuccess" class="alert alert-success" style="margin-bottom:16px;">{{docTypeSuccess}}</div>
+            <div *ngIf="docTypeError && !showDocTypeModal" class="alert alert-error" style="margin-bottom:16px;">{{docTypeError}}</div>
+
+            <div class="section-header">
+              <div>
+                <div class="section-title">Receipt Types</div>
+                <div class="section-count">{{filteredDocTypes.length}} types configured</div>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <div class="search-bar">
+                  <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                  </svg>
+                  <input type="text" placeholder="Search receipt types..." [(ngModel)]="docTypeSearch"
+                    (ngModelChange)="applyDocTypeFilter()">
+                </div>
+                <button class="btn-primary flex items-center gap-1.5 cursor-pointer" (click)="openCreateDocType()" style="font-size:12px; height:36px; padding:0 14px; border:none; border-radius:6px; color:#fff; font-weight:700;">
+                  <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  New Receipt Type
+                </button>
+              </div>
+            </div>
+
+            <div class="table-card">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Slug</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let dt of filteredDocTypes">
+                    <td class="td-name">{{dt.Name}}</td>
+                    <td class="td-muted">{{dt.Slug}}</td>
+                    <td>
+                      <span class="badge" [ngClass]="dt.Active ? 'badge-active' : 'badge-inactive'">
+                        {{dt.Active ? 'Active' : 'Inactive'}}
+                      </span>
+                    </td>
+                    <td>
+                      <div class="actions-row" *ngIf="deleteConfirmDocTypeId !== dt.ID">
+                        <button class="btn-edit" (click)="openEditDocType(dt)">
+                          <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke-width="2.5"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                              d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                          </svg>
+                          Edit
+                        </button>
+                        <button class="btn-danger" (click)="confirmDeleteDocType(dt.ID)">
+                          <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke-width="2.5"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                              d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
+                      <div class="delete-confirm" *ngIf="deleteConfirmDocTypeId === dt.ID">
+                        Sure?
+                        <button class="btn-danger" style="padding:3px 8px;" (click)="deleteDocType(dt.ID)">Yes</button>
+                        <button class="btn-secondary" style="padding:3px 8px;font-size:11px;"
+                          (click)="deleteConfirmDocTypeId=''">No</button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr *ngIf="filteredDocTypes.length === 0">
+                    <td colspan="6">
+                      <div class="empty-state">
+                        <div class="empty-icon">📄</div>
+                        No receipt types found.
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </ng-container>
+        </div>
+
+        <!-- ───────────────────────────────────────────────────────────── -->
+        <!-- SUB-SECTION: FILE CATEGORIES -->
+        <!-- ───────────────────────────────────────────────────────────── -->
+        <div *ngIf="docDashboardTab === 'file_categories'">
+          <div *ngIf="fileCategorySuccess" class="alert alert-success" style="margin-bottom:16px;">{{fileCategorySuccess}}</div>
+          <div *ngIf="fileCategoryError && !showFileCategoryModal" class="alert alert-error" style="margin-bottom:16px;">{{fileCategoryError}}</div>
 
           <div class="section-header">
             <div>
-              <div class="section-title">Document Types</div>
-              <div class="section-count">{{filteredDocTypes.length}} types configured</div>
+              <div class="section-title">File Categories</div>
+              <div class="section-count">{{filteredFileCategories.length}} categories configured</div>
             </div>
-            <div class="search-bar">
-              <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                  d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-              </svg>
-              <input type="text" placeholder="" [(ngModel)]="docTypeSearch"
-                (ngModelChange)="applyDocTypeFilter()">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div class="search-bar">
+                <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <input type="text" placeholder="Search categories..." [(ngModel)]="fileCategorySearch"
+                  (ngModelChange)="applyFileCategoryFilter()">
+              </div>
+              <button class="btn-primary flex items-center gap-1.5 cursor-pointer" (click)="openCreateFileCategory()" style="font-size:12px; height:36px; padding:0 14px; border:none; border-radius:6px; color:#fff; font-weight:700;">
+                <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                New File Category
+              </button>
             </div>
           </div>
 
@@ -304,30 +426,22 @@
                 <tr>
                   <th>Name</th>
                   <th>Slug</th>
-                  <th>School</th>
-                  <th>SLA Hours</th>
-
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let dt of filteredDocTypes">
-                  <td class="td-name">{{dt.Name}}</td>
-                  <td class="td-muted">{{dt.Slug}}</td>
-                  <td>{{dt.SchoolName || '—'}}</td>
+                <tr *ngFor="let cat of filteredFileCategories">
+                  <td class="td-name">{{cat.Name}}</td>
+                  <td class="td-muted">{{cat.Slug}}</td>
                   <td>
-                    <span style="font-weight:700;color:#0369a1;">{{dt.SlaHours}}h</span>
-                  </td>
-
-                  <td>
-                    <span class="badge" [ngClass]="dt.Active ? 'badge-active' : 'badge-inactive'">
-                      {{dt.Active ? 'Active' : 'Inactive'}}
+                    <span class="badge" [ngClass]="cat.Active ? 'badge-active' : 'badge-inactive'">
+                      {{cat.Active ? 'Active' : 'Inactive'}}
                     </span>
                   </td>
                   <td>
-                    <div class="actions-row" *ngIf="deleteConfirmDocTypeId !== dt.ID">
-                      <button class="btn-edit" (click)="openEditDocType(dt)">
+                    <div class="actions-row" *ngIf="deleteConfirmFileCategoryId !== cat.ID">
+                      <button class="btn-edit" (click)="openEditFileCategory(cat)">
                         <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke-width="2.5"
                           stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round"
@@ -335,7 +449,7 @@
                         </svg>
                         Edit
                       </button>
-                      <button class="btn-danger" (click)="confirmDeleteDocType(dt.ID)">
+                      <button class="btn-danger" (click)="confirmDeleteFileCategory(cat.ID)">
                         <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke-width="2.5"
                           stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round"
@@ -344,26 +458,118 @@
                         Delete
                       </button>
                     </div>
-                    <div class="delete-confirm" *ngIf="deleteConfirmDocTypeId === dt.ID">
+                    <div class="delete-confirm" *ngIf="deleteConfirmFileCategoryId === cat.ID">
                       Sure?
-                      <button class="btn-danger" style="padding:3px 8px;" (click)="deleteDocType(dt.ID)">Yes</button>
+                      <button class="btn-danger" style="padding:3px 8px;" (click)="deleteFileCategory(cat.ID)">Yes</button>
                       <button class="btn-secondary" style="padding:3px 8px;font-size:11px;"
-                        (click)="deleteConfirmDocTypeId=''">No</button>
+                        (click)="deleteConfirmFileCategoryId=''">No</button>
                     </div>
                   </td>
                 </tr>
-                <tr *ngIf="filteredDocTypes.length === 0">
-                  <td colspan="7">
+                <tr *ngIf="filteredFileCategories.length === 0">
+                  <td colspan="4">
                     <div class="empty-state">
-                      <div class="empty-icon">📄</div>
-                      No document types found.
+                      <div class="empty-icon">📁</div>
+                      No file categories found.
                     </div>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
-        </ng-container>
+        </div>
+
+        <!-- ───────────────────────────────────────────────────────────── -->
+        <!-- SUB-SECTION: FILE SUB-CATEGORIES -->
+        <!-- ───────────────────────────────────────────────────────────── -->
+        <div *ngIf="docDashboardTab === 'file_subcategories'">
+          <div *ngIf="fileSubCategorySuccess" class="alert alert-success" style="margin-bottom:16px;">{{fileSubCategorySuccess}}</div>
+          <div *ngIf="fileSubCategoryError && !showFileSubCategoryModal" class="alert alert-error" style="margin-bottom:16px;">{{fileSubCategoryError}}</div>
+
+          <div class="section-header">
+            <div>
+              <div class="section-title">File Sub-categories</div>
+              <div class="section-count">{{filteredFileSubCategories.length}} sub-categories configured</div>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div class="search-bar">
+                <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <input type="text" placeholder="Search sub-categories..." [(ngModel)]="fileSubCategorySearch"
+                  (ngModelChange)="applyFileSubCategoryFilter()">
+              </div>
+              <button class="btn-primary flex items-center gap-1.5 cursor-pointer" (click)="openCreateFileSubCategory()" style="font-size:12px; height:36px; padding:0 14px; border:none; border-radius:6px; color:#fff; font-weight:700;">
+                <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                New Sub-category
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Parent Category</th>
+                  <th>Slug</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let sub of filteredFileSubCategories">
+                  <td class="td-name">{{sub.Name}}</td>
+                  <td class="td-info" style="font-weight: 500; color: var(--primary);">{{sub.Category}}</td>
+                  <td class="td-muted">{{sub.Slug}}</td>
+                  <td>
+                    <span class="badge" [ngClass]="sub.Active ? 'badge-active' : 'badge-inactive'">
+                      {{sub.Active ? 'Active' : 'Inactive'}}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="actions-row" *ngIf="deleteConfirmFileSubCategoryId !== sub.ID">
+                      <button class="btn-edit" (click)="openEditFileSubCategory(sub)">
+                        <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke-width="2.5"
+                          stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round"
+                            d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                        </svg>
+                        Edit
+                      </button>
+                      <button class="btn-danger" (click)="confirmDeleteFileSubCategory(sub.ID)">
+                        <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke-width="2.5"
+                          stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round"
+                            d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                        </svg>
+                        Delete
+                      </button>
+                    </div>
+                    <div class="delete-confirm" *ngIf="deleteConfirmFileSubCategoryId === sub.ID">
+                      Sure?
+                      <button class="btn-danger" style="padding:3px 8px;" (click)="deleteFileSubCategory(sub.ID)">Yes</button>
+                      <button class="btn-secondary" style="padding:3px 8px;font-size:11px;"
+                        (click)="deleteConfirmFileSubCategoryId=''">No</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngIf="filteredFileSubCategories.length === 0">
+                  <td colspan="5">
+                    <div class="empty-state">
+                      <div class="empty-icon">📁</div>
+                      No file sub-categories found.
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════ -->
@@ -495,12 +701,12 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════ -->
-  <!-- MODAL: ADD / EDIT DOCUMENT TYPE -->
+  <!-- MODAL: ADD / EDIT RECEIPT TYPE -->
   <!-- ══════════════════════════════════════════════════════════════════ -->
   <div class="modal-overlay" *ngIf="showDocTypeModal" (click)="showDocTypeModal=false">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <span class="modal-title">{{editingDocType ? 'Edit Document Type' : 'New Document Type'}}</span>
+        <span class="modal-title">{{editingDocType ? 'Edit Receipt Type' : 'New Receipt Type'}}</span>
         <button class="modal-close" (click)="showDocTypeModal=false">✕</button>
       </div>
       <div class="modal-body">
@@ -515,18 +721,12 @@
             <input id="admin-dt-slug" type="text" [(ngModel)]="docTypeForm.slug" placeholder="">
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="admin-dt-sla">SLA Hours</label>
-            <input id="admin-dt-sla" type="number" [(ngModel)]="docTypeForm.sla_hours" min="1" placeholder="72">
-          </div>
-          <div class="form-group">
-            <label for="admin-dt-active">Status</label>
-            <select id="admin-dt-active" [(ngModel)]="docTypeForm.active">
-              <option [ngValue]="true">Active</option>
-              <option [ngValue]="false">Inactive</option>
-            </select>
-          </div>
+        <div class="form-group">
+          <label for="admin-dt-active">Status</label>
+          <select id="admin-dt-active" [(ngModel)]="docTypeForm.active">
+            <option [ngValue]="true">Active</option>
+            <option [ngValue]="false">Inactive</option>
+          </select>
         </div>
         <div class="form-group">
           <label for="admin-dt-stages">Workflow Stages (JSON)</label>
@@ -538,16 +738,93 @@
           <textarea id="admin-dt-fields" [(ngModel)]="docTypeForm.required_fields"
             placeholder='["from_date","to_date","reason"]'></textarea>
         </div>
-        <div class="form-group" style="flex-direction:row;align-items:center;gap:10px;">
-          <input type="checkbox" id="cosign" [(ngModel)]="docTypeForm.needs_parent_cosign"
-            style="width:16px;height:16px;">
-          <label for="cosign" style="margin:0;">Requires Parent Co-sign</label>
-        </div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" (click)="showDocTypeModal=false">Cancel</button>
         <button class="btn-primary" (click)="saveDocType()">
           {{editingDocType ? 'Save Changes' : 'Create'}}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: ADD / EDIT FILE CATEGORY -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" *ngIf="showFileCategoryModal" (click)="showFileCategoryModal=false">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <span class="modal-title">{{editingFileCategory ? 'Edit File Category' : 'New File Category'}}</span>
+        <button class="modal-close" (click)="showFileCategoryModal=false">✕</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="fileCategoryError" class="alert alert-error">{{fileCategoryError}}</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="admin-fc-name">Category Name *</label>
+            <input id="admin-fc-name" type="text" [(ngModel)]="fileCategoryForm.name" placeholder="e.g. Finance">
+          </div>
+          <div class="form-group">
+            <label for="admin-fc-slug">Slug</label>
+            <input id="admin-fc-slug" type="text" [(ngModel)]="fileCategoryForm.slug" placeholder="e.g. finance">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="admin-fc-active">Status</label>
+          <select id="admin-fc-active" [(ngModel)]="fileCategoryForm.active">
+            <option [ngValue]="true">Active</option>
+            <option [ngValue]="false">Inactive</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="showFileCategoryModal=false">Cancel</button>
+        <button class="btn-primary" (click)="saveFileCategory()">
+          {{editingFileCategory ? 'Save Changes' : 'Create'}}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: ADD / EDIT FILE SUB-CATEGORY -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" *ngIf="showFileSubCategoryModal" (click)="showFileSubCategoryModal=false">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <span class="modal-title">{{editingFileSubCategory ? 'Edit File Sub-category' : 'New File Sub-category'}}</span>
+        <button class="modal-close" (click)="showFileSubCategoryModal=false">✕</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="fileSubCategoryError" class="alert alert-error">{{fileSubCategoryError}}</div>
+        <div class="form-group">
+          <label for="admin-fsc-parent">Parent Category *</label>
+          <select id="admin-fsc-parent" [(ngModel)]="fileSubCategoryForm.category">
+            <option *ngFor="let cat of fileCategories" [value]="cat.Name">{{cat.Name}}</option>
+          </select>
+        </div>
+        <div class="form-row mt-3">
+          <div class="form-group">
+            <label for="admin-fsc-name">Sub-category Name *</label>
+            <input id="admin-fsc-name" type="text" [(ngModel)]="fileSubCategoryForm.name" placeholder="e.g. Payroll">
+          </div>
+          <div class="form-group">
+            <label for="admin-fsc-slug">Slug</label>
+            <input id="admin-fsc-slug" type="text" [(ngModel)]="fileSubCategoryForm.slug" placeholder="e.g. payroll">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="admin-fsc-active">Status</label>
+          <select id="admin-fsc-active" [(ngModel)]="fileSubCategoryForm.active">
+            <option [ngValue]="true">Active</option>
+            <option [ngValue]="false">Inactive</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="showFileSubCategoryModal=false">Cancel</button>
+        <button class="btn-primary" (click)="saveFileSubCategory()">
+          {{editingFileSubCategory ? 'Save Changes' : 'Create'}}
         </button>
       </div>
     </div>
