@@ -76,9 +76,22 @@ export class DashboardComponent implements OnInit {
 
     // Subscribe to folder parameters from global sidebar
     this.route.queryParams.subscribe(params => {
+      if (params['mode']) {
+        const newMode = params['mode'] as 'receipts' | 'files';
+        if (this.viewMode !== newMode) {
+          this.viewMode = newMode;
+          this.activeTab = 'all_files';
+          this.selectedPriority = 'All';
+        }
+      }
       if (params['folder']) {
         this.selectedFolder = params['folder'];
-        this.applyFilter();
+      }
+      this.applyFilter();
+      if (this.viewMode === 'receipts') {
+        this.loadDocuments();
+      } else {
+        this.loadFiles();
       }
     });
     
@@ -107,6 +120,7 @@ export class DashboardComponent implements OnInit {
   setViewMode(mode: 'receipts' | 'files') {
     this.viewMode = mode;
     this.activeTab = 'all_files';
+    this.selectedPriority = 'All';
     this.applyFilter();
     if (mode === 'receipts') {
       this.loadDocuments();
@@ -178,26 +192,14 @@ export class DashboardComponent implements OnInit {
         list = list.filter(doc => doc.Category?.toLowerCase() === this.selectedFolder.toLowerCase());
       }
 
-      // 2. Priority filter
-      if (this.selectedPriority !== 'All') {
-        list = list.filter(doc => doc.Priority?.toLowerCase() === this.selectedPriority.toLowerCase());
-      }
-
-      // 3. Tab filter
+      // 2. Tab filter
       if (this.activeTab !== 'all_files') {
-        const now = new Date();
         const currentUserIdLower = (this.currentUser.ID || this.currentUser.id || '').toLowerCase();
 
-        if (this.activeTab === 'pending_me') {
+        if (this.activeTab === 'received') {
           list = list.filter(doc => (doc.CurrentOwnerID || '').toLowerCase() === currentUserIdLower && doc.Status !== 'Approved' && doc.Status !== 'Rejected' && doc.Status !== 'Closed' && doc.Status !== 'Archived');
-        } else if (this.activeTab === 'sent_out') {
-          list = list.filter(doc => (doc.HasActed || doc.hasActed || (doc.UploaderID || '').toLowerCase() === currentUserIdLower) && (doc.CurrentOwnerID || '').toLowerCase() !== currentUserIdLower && doc.Status !== 'Approved' && doc.Status !== 'Rejected' && doc.Status !== 'Closed' && doc.Status !== 'Archived');
-        } else if (this.activeTab === 'overdue') {
-          list = list.filter(doc => (doc.Status === 'Pending Approval' || doc.Status === 'Sent Back') && doc.SlaDeadline && new Date(doc.SlaDeadline) < now);
-        } else if (this.activeTab === 'approved') {
-          list = list.filter(doc => doc.Status === 'Approved' && ((doc.UploaderID || '').toLowerCase() === currentUserIdLower || (doc.CurrentOwnerID || '').toLowerCase() === currentUserIdLower));
-        } else if (this.activeTab === 'archived_closed') {
-          list = list.filter(doc => doc.Status === 'Closed' || doc.Status === 'Archived');
+        } else if (this.activeTab === 'my_receipts') {
+          list = list.filter(doc => (doc.UploaderID || '').toLowerCase() === currentUserIdLower);
         }
       }
 
@@ -207,13 +209,17 @@ export class DashboardComponent implements OnInit {
 
       const currentUserIdLower = (this.currentUser.ID || this.currentUser.id || '').toLowerCase();
 
+      // 1. Priority filter
+      if (this.selectedPriority !== 'All') {
+        list = list.filter(file => file.Priority?.toLowerCase() === this.selectedPriority.toLowerCase() || (this.selectedPriority === 'Normal' && !file.Priority));
+      }
+
+      // 2. Tab filter
       if (this.activeTab !== 'all_files') {
-        if (this.activeTab === 'pending_me') {
-          list = list.filter(file => (file.CurrentOwnerID || '').toLowerCase() === currentUserIdLower && file.Status !== 'Closed' && file.Status !== 'Archived');
-        } else if (this.activeTab === 'sent_out') {
-          list = list.filter(file => (file.CreatorID || '').toLowerCase() === currentUserIdLower && (file.CurrentOwnerID || '').toLowerCase() !== currentUserIdLower && file.Status !== 'Closed' && file.Status !== 'Archived');
-        } else if (this.activeTab === 'approved' || this.activeTab === 'archived_closed') {
-          list = list.filter(file => file.Status === 'Closed' || file.Status === 'Archived');
+        if (this.activeTab === 'received') {
+          list = list.filter(file => (file.CurrentOwnerID || '').toLowerCase() === currentUserIdLower && (file.CreatorID || '').toLowerCase() !== currentUserIdLower && file.Status !== 'Closed' && file.Status !== 'Archived');
+        } else if (this.activeTab === 'my_files') {
+          list = list.filter(file => (file.CreatorID || '').toLowerCase() === currentUserIdLower);
         }
       }
 
@@ -238,19 +244,14 @@ export class DashboardComponent implements OnInit {
       if (tab === 'all_files') {
         return list.length;
       }
-      const now = new Date();
       const currentUserIdLower = (this.currentUser.ID || this.currentUser.id || '').toLowerCase();
 
-      if (tab === 'pending_me') {
+      if (tab === 'received') {
         list = list.filter(doc => (doc.CurrentOwnerID || '').toLowerCase() === currentUserIdLower && doc.Status !== 'Approved' && doc.Status !== 'Rejected' && doc.Status !== 'Closed' && doc.Status !== 'Archived');
-      } else if (tab === 'sent_out') {
-        list = list.filter(doc => (doc.HasActed || doc.hasActed || (doc.UploaderID || '').toLowerCase() === currentUserIdLower) && (doc.CurrentOwnerID || '').toLowerCase() !== currentUserIdLower && doc.Status !== 'Approved' && doc.Status !== 'Rejected' && doc.Status !== 'Closed' && doc.Status !== 'Archived');
-      } else if (tab === 'overdue') {
-        list = list.filter(doc => (doc.Status === 'Pending Approval' || doc.Status === 'Sent Back') && doc.SlaDeadline && new Date(doc.SlaDeadline) < now);
-      } else if (tab === 'approved') {
-        list = list.filter(doc => doc.Status === 'Approved' && ((doc.UploaderID || '').toLowerCase() === currentUserIdLower || (doc.CurrentOwnerID || '').toLowerCase() === currentUserIdLower));
-      } else if (tab === 'archived_closed') {
-        list = list.filter(doc => doc.Status === 'Closed' || doc.Status === 'Archived');
+      } else if (tab === 'my_receipts') {
+        list = list.filter(doc => (doc.UploaderID || '').toLowerCase() === currentUserIdLower);
+      } else {
+        return 0;
       }
       return list.length;
     } else {
@@ -259,13 +260,11 @@ export class DashboardComponent implements OnInit {
       }
       const currentUserIdLower = (this.currentUser.ID || this.currentUser.id || '').toLowerCase();
 
-      if (tab === 'pending_me') {
-        list = list.filter(file => (file.CurrentOwnerID || '').toLowerCase() === currentUserIdLower && file.Status !== 'Closed' && file.Status !== 'Archived');
-      } else if (tab === 'sent_out') {
-        list = list.filter(file => (file.CreatorID || '').toLowerCase() === currentUserIdLower && (file.CurrentOwnerID || '').toLowerCase() !== currentUserIdLower && file.Status !== 'Closed' && file.Status !== 'Archived');
-      } else if (tab === 'approved' || tab === 'archived_closed') {
-        list = list.filter(file => file.Status === 'Closed' || file.Status === 'Archived');
-      } else if (tab === 'overdue') {
+      if (tab === 'received') {
+        list = list.filter(file => (file.CurrentOwnerID || '').toLowerCase() === currentUserIdLower && (file.CreatorID || '').toLowerCase() !== currentUserIdLower && file.Status !== 'Closed' && file.Status !== 'Archived');
+      } else if (tab === 'my_files') {
+        list = list.filter(file => (file.CreatorID || '').toLowerCase() === currentUserIdLower);
+      } else {
         return 0;
       }
       return list.length;

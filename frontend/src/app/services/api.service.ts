@@ -111,8 +111,8 @@ export class ApiService {
     });
   }
 
-  createFile(title: string, description: string, category: string, subCategory: string) {
-    return this.http.post<any>(`${this.apiUrl}/files`, { title, description, category, sub_category: subCategory });
+  createFile(title: string, description: string, category: string, subCategory: string, priority?: string) {
+    return this.http.post<any>(`${this.apiUrl}/files`, { title, description, category, sub_category: subCategory, priority });
   }
 
   listFiles(search?: string) {

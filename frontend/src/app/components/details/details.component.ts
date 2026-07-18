@@ -513,8 +513,7 @@ export class DetailsComponent implements OnInit {
   loadAvailableReceipts() {
     this.api.getDocuments(this.currentUser.ID).subscribe({
       next: (docs) => {
-        // Only show receipts that are not already attached to a file
-        this.availableReceipts = (docs || []).filter(doc => !doc.FileID);
+        this.availableReceipts = docs || [];
         if (this.availableReceipts.length > 0) {
           this.selectedReceiptToAttach = this.availableReceipts[0].ID;
         } else {

@@ -67,7 +67,7 @@ func (r *repository) ListByUser(userID uuid.UUID, search string) ([]models.Docum
 	}
 
 	var documents []models.Document
-	query := r.db.Preload("Uploader").Preload("CurrentOwner").Preload("Attachments")
+	query := r.db.Preload("Uploader").Preload("CurrentOwner").Preload("Attachments").Where("uploader_id != current_owner_id")
 
 	// Apply RBAC filters based on Greenwood High School roles
 	switch user.Role {

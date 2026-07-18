@@ -17,6 +17,7 @@ export class CreateFileComponent {
   description: string = '';
   category: string = '';
   subCategory: string = '';
+  priority: string = 'Normal';
   error: string = '';
   loading: boolean = false;
 
@@ -68,7 +69,7 @@ export class CreateFileComponent {
     }
 
     this.loading = true;
-    this.api.createFile(titleTrimmed, this.description, this.category, this.subCategory).subscribe({
+    this.api.createFile(titleTrimmed, this.description, this.category, this.subCategory, this.priority).subscribe({
       next: (res: any) => {
         this.loading = false;
         this.router.navigate(['/dashboard']);

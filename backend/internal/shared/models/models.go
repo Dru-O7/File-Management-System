@@ -243,6 +243,7 @@ type File struct {
 	CreatorID      uuid.UUID  `gorm:"type:uuid;not null"`
 	CurrentOwnerID uuid.UUID  `gorm:"type:uuid;not null"` // Who currently acts on the file
 	Status         FileStatus `gorm:"size:50;not null;default:'Open'"`
+	Priority       string     `gorm:"size:50;default:'Normal'"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 

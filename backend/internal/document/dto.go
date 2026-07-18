@@ -99,6 +99,7 @@ type FileResponse struct {
 	CreatorID      uuid.UUID         `json:"CreatorID"`
 	CurrentOwnerID uuid.UUID         `json:"CurrentOwnerID"`
 	Status         models.FileStatus `json:"Status"`
+	Priority       string            `json:"Priority"`
 	CreatedAt      time.Time         `json:"CreatedAt"`
 	UpdatedAt      time.Time         `json:"UpdatedAt"`
 
@@ -133,6 +134,7 @@ type CreateFileRequest struct {
 	Description string `json:"description"`
 	Category    string `json:"category"`
 	SubCategory string `json:"sub_category"`
+	Priority    string `json:"priority"`
 }
 
 type CreateNoteRequest struct {
