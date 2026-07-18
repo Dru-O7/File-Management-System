@@ -30,9 +30,15 @@ func main() {
 	school1 := models.School{ID: uuid.New(), Name: "Greenwood High School", Slug: "greenwood-high"}
 	school2 := models.School{ID: uuid.New(), Name: "Delhi Public School", Slug: "dps"}
 	school3 := models.School{ID: uuid.New(), Name: "Modern School", Slug: "modern-school"}
-	gormDB.Create(&school1)
-	gormDB.Create(&school2)
-	gormDB.Create(&school3)
+	if err := gormDB.Create(&school1).Error; err != nil {
+		log.Fatalf("Failed to create school1: %v", err)
+	}
+	if err := gormDB.Create(&school2).Error; err != nil {
+		log.Fatalf("Failed to create school2: %v", err)
+	}
+	if err := gormDB.Create(&school3).Error; err != nil {
+		log.Fatalf("Failed to create school3: %v", err)
+	}
 	log.Println("Seeded schools: Greenwood High, DPS, Modern School")
 	school := school1 // Keep reference to first school for document types seeding
 
