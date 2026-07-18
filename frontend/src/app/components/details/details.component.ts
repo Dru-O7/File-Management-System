@@ -66,6 +66,17 @@ export class DetailsComponent implements OnInit {
     this.showForwardSelect = !this.showForwardSelect;
   }
 
+  get canViewWorkspace(): boolean {
+    const currentUserId = this.currentUser?.ID || this.currentUser?.id;
+    if (this.isFileType && this.file) {
+      return this.file.CurrentOwnerID === currentUserId && this.file.Status !== 'Closed' && this.file.Status !== 'Archived';
+    }
+    if (!this.isFileType && this.document) {
+      return this.document.CurrentOwnerID === currentUserId;
+    }
+    return false;
+  }
+
   ngOnInit() {
     this.currentUser = this.auth.getCurrentUser();
     if (!this.currentUser) {
@@ -478,6 +489,14 @@ export class DetailsComponent implements OnInit {
         }
         this.loading = false;
         
+        const currentUserId = this.currentUser?.ID || this.currentUser?.id;
+        if (this.file.CurrentOwnerID !== currentUserId || this.file.Status === 'Closed' || this.file.Status === 'Archived') {
+          this.activeDetailTab = 'activity';
+        } else {
+          this.activeDetailTab = 'workspace';
+        }
+
+
         // Also fetch all available (unattached) receipts to support attaching receipts
         this.loadAvailableReceipts();
       },

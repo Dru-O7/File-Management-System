@@ -609,6 +609,7 @@
         class="flex items-center gap-1 bg-[var(--surface)] border border-[var(--border)]/30 rounded-xl p-1 self-start sm:self-auto shadow-sm"
       >
         <button
+          *ngIf="canViewWorkspace"
           class="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer border-0"
           [ngClass]="{
             'bg-[var(--primary)] text-white shadow-sm':
@@ -1155,7 +1156,7 @@
         <span
           class="ml-auto text-[10px] font-bold text-[var(--text-muted)] bg-[var(--background)] border border-[var(--border)] px-2.5 py-0.5 rounded-full"
         >
-          {{ history?.length || 0 }} events
+          {{ history.length || 0 }} events
         </span>
       </div>
 

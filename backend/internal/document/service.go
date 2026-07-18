@@ -1971,6 +1971,7 @@ func (s *service) AttachReceipt(fileID, authenticatedUserID uuid.UUID, receiptID
 		// Clone receipt to allow reusability across multiple files
 		newReceipt := *receipt
 		newReceipt.ID = uuid.New()
+		newReceipt.UniqueNumber = fmt.Sprintf("%s-C%s", receipt.UniqueNumber, newReceipt.ID.String()[:6])
 		newReceipt.FileID = &fileID
 		if err := s.repo.Create(&newReceipt); err != nil {
 			return nil, err

@@ -67,7 +67,7 @@ func (r *repository) ListByUser(userID uuid.UUID, search string) ([]models.Docum
 	}
 
 	var documents []models.Document
-	query := r.db.Preload("Uploader").Preload("CurrentOwner").Preload("Attachments").Where("uploader_id != current_owner_id")
+	query := r.db.Preload("Uploader").Preload("CurrentOwner").Preload("Attachments")
 
 	// Apply RBAC filters based on Greenwood High School roles
 	switch user.Role {
@@ -83,7 +83,7 @@ func (r *repository) ListByUser(userID uuid.UUID, search string) ([]models.Docum
 		// 2. Documents where they are in history
 		// 3. All Official Circulars
 		query = query.Where(
-			"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR category = 'Official Circular'",
+			"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?)",
 			userID, userID, userID,
 		)
 
@@ -95,12 +95,12 @@ func (r *repository) ListByUser(userID uuid.UUID, search string) ([]models.Docum
 		// 4. Official Circulars targeted at their department or All
 		if user.ClassSection != "" {
 			query = query.Where(
-				"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR uploader_id IN (SELECT id FROM users WHERE class_section = ? AND role = 'vocational') OR (category = 'Official Circular' AND (target_class = 'All' OR target_class = ?))",
-				userID, userID, userID, user.ClassSection, user.ClassSection,
+				"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR uploader_id IN (SELECT id FROM users WHERE class_section = ? AND role = 'vocational')",
+				userID, userID, userID, user.ClassSection,
 			)
 		} else {
 			query = query.Where(
-				"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR (category = 'Official Circular' AND target_class = 'All')",
+				"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?)",
 				userID, userID, userID,
 			)
 		}
@@ -118,10 +118,9 @@ func (r *repository) ListByUser(userID uuid.UUID, search string) ([]models.Docum
 		// vocational can see:
 		// 1. Documents they own
 		// 2. Documents where they are in history
-		// 3. Relevant Official Circulars
 		query = query.Where(
-			"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR (category = 'Official Circular' AND (target_class = 'All' OR target_class = ?))",
-			userID, userID, userID, user.ClassSection,
+			"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?)",
+			userID, userID, userID,
 		)
 	}
 
