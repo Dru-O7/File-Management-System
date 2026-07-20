@@ -318,15 +318,10 @@ func seedData(gormDB *gorm.DB) {
 				RequiredFields: `["audit_reason", "percentage"]`,
 				SlaHours:       96,
 			},
-			{
-				SchoolID:       s.ID,
-				Name:           "Official Circular",
-				Slug:           "official-circular",
-				WorkflowStages: `[]`,
-				RequiredFields: `[]`,
-				SlaHours:       0,
-			},
 		}
+
+		// Ensure Official Circular category is deleted from database
+		gormDB.Where("slug = ?", "official-circular").Delete(&models.DocumentType{})
 
 		for i := range docTypes {
 			var existing models.DocumentType

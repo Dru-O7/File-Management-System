@@ -147,6 +147,10 @@ export class ApiService {
     return this.http.put<any>(`${this.apiUrl}/files/${id}/archive`, {});
   }
 
+  reopenFile(id: string) {
+    return this.http.put<any>(`${this.apiUrl}/files/${id}/reopen`, {});
+  }
+
   createNote(fileId: string, content: string, type: 'Green' | 'Yellow') {
     return this.http.post<any>(`${this.apiUrl}/files/${fileId}/notes`, {
       content,

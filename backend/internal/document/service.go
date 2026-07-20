@@ -60,6 +60,7 @@ type Service interface {
 	PublishNote(noteID, authenticatedUserID uuid.UUID, signature string) (*NoteResponse, error)
 	CloseFile(fileID, authenticatedUserID uuid.UUID) (*FileResponse, error)
 	ArchiveFile(fileID, authenticatedUserID uuid.UUID) (*FileResponse, error)
+	ReopenFile(fileID, authenticatedUserID uuid.UUID) (*FileResponse, error)
 }
 
 type service struct {
@@ -142,7 +143,7 @@ func (s *service) Upload(uploaderID uuid.UUID, targetOwnerIDs []uuid.UUID, title
 	}
 	docStatus := models.StatusPendingApproval
 
-	if category == "Official Circular" || category == "Assignment Broadcast" {
+	if category == "Assignment Broadcast" {
 		assignedOwnerID = uploaderID
 		docStatus = models.StatusApproved // Immediately visible
 	} else if len(targetOwnerIDs) == 1 && targetOwnerIDs[0] == uploaderID {
@@ -208,7 +209,7 @@ func (s *service) Upload(uploaderID uuid.UUID, targetOwnerIDs []uuid.UUID, title
 	}
 
 	// Setup pending approver records for the entire chain
-	if category != "Official Circular" && category != "Assignment Broadcast" {
+	if category != "Assignment Broadcast" {
 		for i, id := range targetOwnerIDs {
 			pendingApprover := &models.DocumentPendingApprover{
 				ID:         uuid.New(),
@@ -898,8 +899,8 @@ func (s *service) authorizeDocAccess(doc *models.Document, userID uuid.UUID) err
 		return errors.New("you are not authorized to view this document (outside school scope)")
 	}
 
-	// Circular or Broadcast access
-	if doc.Category == "Official Circular" || doc.Category == "Assignment Broadcast" {
+	// Broadcast access
+	if doc.Category == "Assignment Broadcast" {
 		if doc.TargetClass == "All" {
 			return nil
 		}
@@ -1751,6 +1752,14 @@ func (s *service) toFileResponse(f *models.File) *FileResponse {
 		receipts[i] = *s.toDocumentResponse(&r)
 	}
 
+	archivedByID := f.ArchivedByID
+	if f.Status == models.FileStatusArchived && archivedByID == nil {
+		var history models.WorkflowHistory
+		if err := s.repo.(*repository).db.Where("file_id = ? AND action = ?", f.ID, "Archived").Order("created_at desc").First(&history).Error; err == nil {
+			archivedByID = &history.ActorID
+		}
+	}
+
 	return &FileResponse{
 		ID:             f.ID,
 		SchoolID:       f.SchoolID,
@@ -1763,6 +1772,7 @@ func (s *service) toFileResponse(f *models.File) *FileResponse {
 		CurrentOwnerID: f.CurrentOwnerID,
 		Status:         f.Status,
 		Priority:       f.Priority,
+		ArchivedByID:   archivedByID,
 		CreatedAt:      f.CreatedAt,
 		UpdatedAt:      f.UpdatedAt,
 		Creator:        f.Creator,
@@ -1927,6 +1937,10 @@ func (s *service) ForwardFile(fileID, authenticatedUserID uuid.UUID, req Forward
 		return nil, errors.New("you are not the current owner of this file")
 	}
 
+	if file.Status == models.FileStatusClosed || file.Status == models.FileStatusArchived {
+		return nil, errors.New("cannot forward a closed or archived file")
+	}
+
 	// Create workflow history for the file forward action
 	history := &models.WorkflowHistory{
 		ID:        uuid.New(),
@@ -1961,6 +1975,10 @@ func (s *service) AttachReceipt(fileID, authenticatedUserID uuid.UUID, receiptID
 
 	if file.CurrentOwnerID != authenticatedUserID {
 		return nil, errors.New("you are not authorized to attach receipts to this file")
+	}
+
+	if file.Status == models.FileStatusClosed || file.Status == models.FileStatusArchived {
+		return nil, errors.New("cannot attach receipts to a closed or archived file")
 	}
 
 	receipt, err := s.repo.GetByID(receiptID)
@@ -2014,6 +2032,10 @@ func (s *service) CreateNote(fileID, authenticatedUserID uuid.UUID, req CreateNo
 		return nil, errors.New("file not found")
 	}
 
+	if file.Status == models.FileStatusClosed || file.Status == models.FileStatusArchived {
+		return nil, errors.New("cannot add notes to a closed or archived file")
+	}
+
 	var user models.User
 	if err := s.repo.(*repository).db.First(&user, "id = ?", authenticatedUserID).Error; err != nil {
 		return nil, errors.New("unauthorized")
@@ -2065,6 +2087,10 @@ func (s *service) UpdateNote(noteID, authenticatedUserID uuid.UUID, content stri
 		return nil, errors.New("parent file not found")
 	}
 
+	if file.Status == models.FileStatusClosed || file.Status == models.FileStatusArchived {
+		return nil, errors.New("cannot edit notes of a closed or archived file")
+	}
+
 	var user models.User
 	if err := s.repo.(*repository).db.First(&user, "id = ?", authenticatedUserID).Error; err != nil {
 		return nil, errors.New("unauthorized")
@@ -2114,6 +2140,10 @@ func (s *service) PublishNote(noteID, authenticatedUserID uuid.UUID, signature s
 		return nil, errors.New("parent file not found")
 	}
 
+	if file.Status == models.FileStatusClosed || file.Status == models.FileStatusArchived {
+		return nil, errors.New("cannot publish notes on a closed or archived file")
+	}
+
 	if file.CurrentOwnerID != authenticatedUserID {
 		return nil, errors.New("only the file owner can publish this note")
 	}
@@ -2161,6 +2191,10 @@ func (s *service) CloseFile(fileID, authenticatedUserID uuid.UUID) (*FileRespons
 		return nil, errors.New("file not found")
 	}
 	
+	if file.Status == models.FileStatusClosed || file.Status == models.FileStatusArchived {
+		return nil, errors.New("file is already closed or archived")
+	}
+
 	if file.CurrentOwnerID != authenticatedUserID {
 		return nil, errors.New("you are not authorized to close this file")
 	}
@@ -2193,6 +2227,10 @@ func (s *service) ArchiveFile(fileID, authenticatedUserID uuid.UUID) (*FileRespo
 		return nil, errors.New("file not found")
 	}
 	
+	if file.Status == models.FileStatusClosed || file.Status == models.FileStatusArchived {
+		return nil, errors.New("file is already closed or archived")
+	}
+
 	// We check if the user is authorized. We'll allow the owner or an admin.
 	var actor models.User
 	if err := s.repo.(*repository).db.First(&actor, "id = ?", authenticatedUserID).Error; err != nil {
@@ -2204,6 +2242,7 @@ func (s *service) ArchiveFile(fileID, authenticatedUserID uuid.UUID) (*FileRespo
 	}
 	
 	file.Status = models.FileStatusArchived
+	file.ArchivedByID = &authenticatedUserID
 	if err := s.repo.SaveFile(file); err != nil {
 		return nil, err
 	}
@@ -2222,5 +2261,50 @@ func (s *service) ArchiveFile(fileID, authenticatedUserID uuid.UUID) (*FileRespo
 	}
 	_ = s.repo.CreateHistory(history)
 	
+	return s.toFileResponse(file), nil
+}
+
+func (s *service) ReopenFile(fileID, authenticatedUserID uuid.UUID) (*FileResponse, error) {
+	file, err := s.repo.GetFileByID(fileID)
+	if err != nil {
+		return nil, errors.New("file not found")
+	}
+
+	if file.Status != models.FileStatusArchived {
+		return nil, errors.New("only archived files can be reopened")
+	}
+
+	archivedByID := file.ArchivedByID
+	if archivedByID == nil {
+		var history models.WorkflowHistory
+		if err := s.repo.(*repository).db.Where("file_id = ? AND action = ?", file.ID, "Archived").Order("created_at desc").First(&history).Error; err == nil {
+			archivedByID = &history.ActorID
+		}
+	}
+
+	if archivedByID == nil || *archivedByID != authenticatedUserID {
+		return nil, errors.New("only the user who archived this file can reopen it")
+	}
+
+	file.Status = models.FileStatusOpen
+	file.ArchivedByID = nil
+	if err := s.repo.SaveFile(file); err != nil {
+		return nil, err
+	}
+
+	// Log workflow history
+	history := &models.WorkflowHistory{
+		ID:        uuid.New(),
+		SchoolID:  file.SchoolID,
+		FileID:    &fileID,
+		ActorID:   authenticatedUserID,
+		Action:    "Reopened",
+		Remarks:   "File was reopened by the user who archived it",
+		Stage:     1,
+		Version:   1,
+		EventType: "state_transition",
+	}
+	_ = s.repo.CreateHistory(history)
+
 	return s.toFileResponse(file), nil
 }

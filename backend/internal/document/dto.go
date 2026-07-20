@@ -100,6 +100,7 @@ type FileResponse struct {
 	CurrentOwnerID uuid.UUID         `json:"CurrentOwnerID"`
 	Status         models.FileStatus `json:"Status"`
 	Priority       string            `json:"Priority"`
+	ArchivedByID   *uuid.UUID        `json:"ArchivedByID,omitempty"`
 	CreatedAt      time.Time         `json:"CreatedAt"`
 	UpdatedAt      time.Time         `json:"UpdatedAt"`
 

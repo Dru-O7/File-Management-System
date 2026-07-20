@@ -245,12 +245,14 @@ type File struct {
 	CurrentOwnerID uuid.UUID  `gorm:"type:uuid;not null"` // Who currently acts on the file
 	Status         FileStatus `gorm:"size:50;not null;default:'Open'"`
 	Priority       string     `gorm:"size:50;default:'Normal'"`
+	ArchivedByID   *uuid.UUID `gorm:"type:uuid"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 
 	School       *School    `gorm:"foreignKey:SchoolID"`
 	Creator      User       `gorm:"foreignKey:CreatorID"`
 	CurrentOwner User       `gorm:"foreignKey:CurrentOwnerID"`
+	ArchivedBy   *User      `gorm:"foreignKey:ArchivedByID"`
 	Receipts     []Document `gorm:"foreignKey:FileID"`
 }
 

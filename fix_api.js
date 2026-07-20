@@ -44,14 +44,6 @@ const newDocTypes = `docTypes := []models.DocumentType{
 				RequiredFields: \`["audit_reason", "percentage"]\`,
 				SlaHours:       96,
 			},
-			{
-				SchoolID:       school.ID,
-				Name:           "Official Circular",
-				Slug:           "official-circular",
-				WorkflowStages: \`[]\`,
-				RequiredFields: \`[]\`,
-				SlaHours:       0,
-			},
 		}`;
 seedGo = seedGo.replace(docTypesRegex, newDocTypes);
 fs.writeFileSync('backend/cmd/seed/main.go', seedGo);

@@ -267,6 +267,7 @@ export class DetailsComponent implements OnInit {
       this.api.closeFile(this.file.ID).subscribe({
         next: (res) => {
           this.file = res;
+          this.loadFileDetails(this.file.ID);
         },
         error: (err) => {
           console.error('Failed to close file:', err);
@@ -282,10 +283,27 @@ export class DetailsComponent implements OnInit {
       this.api.archiveFile(this.file.ID).subscribe({
         next: (res) => {
           this.file = res;
+          this.loadFileDetails(this.file.ID);
         },
         error: (err) => {
           console.error('Failed to archive file:', err);
           alert(err.error?.error || 'Failed to archive file.');
+        }
+      });
+    }
+  }
+
+  reopenFile() {
+    if (!this.file || !this.file.ID) return;
+    if (confirm('Are you sure you want to reopen this file?')) {
+      this.api.reopenFile(this.file.ID).subscribe({
+        next: (res) => {
+          this.file = res;
+          this.loadFileDetails(this.file.ID);
+        },
+        error: (err) => {
+          console.error('Failed to reopen file:', err);
+          alert(err.error?.error || 'Failed to reopen file.');
         }
       });
     }
@@ -473,6 +491,8 @@ export class DetailsComponent implements OnInit {
     this.loading = true;
     this.api.getFileDetails(id).subscribe({
       next: (res) => {
+        console.log('Loaded file details:', res.file);
+        console.log('Current user:', this.currentUser);
         this.file = res.file;
         this.notes = res.notes || [];
         this.history = res.history || [];

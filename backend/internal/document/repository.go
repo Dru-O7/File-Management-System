@@ -1,7 +1,6 @@
 package document
 
 import (
-	"fmt"
 	"time"
 
 	"office-file-sharing/backend/internal/shared/models"
@@ -83,9 +82,8 @@ func (r *repository) ListByUser(userID uuid.UUID, search string) ([]models.Docum
 		// School Admin can see:
 		// 1. Documents they uploaded/own
 		// 2. Documents where they are in history
-		// 3. All Official Circulars
 		query = query.Where(
-			"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR category = 'Official Circular'",
+			"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?)",
 			userID, userID, userID,
 		)
 
@@ -94,15 +92,14 @@ func (r *repository) ListByUser(userID uuid.UUID, search string) ([]models.Docum
 		// 1. Documents they uploaded/own
 		// 2. Documents in their department uploaded by vocational staff
 		// 3. Documents where they are in history
-		// 4. Official Circulars targeted at their department or All
 		if user.ClassSection != "" {
 			query = query.Where(
-				"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR uploader_id IN (SELECT id FROM users WHERE class_section = ? AND role = 'vocational') OR (category = 'Official Circular' AND (target_class = 'All' OR target_class LIKE ?))",
-				userID, userID, userID, user.ClassSection, fmt.Sprintf("%%%s%%", user.ClassSection),
+				"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR uploader_id IN (SELECT id FROM users WHERE class_section = ? AND role = 'vocational')",
+				userID, userID, userID, user.ClassSection,
 			)
 		} else {
 			query = query.Where(
-				"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?) OR (category = 'Official Circular' AND target_class = 'All')",
+				"uploader_id = ? OR current_owner_id = ? OR id IN (SELECT document_id FROM workflow_histories WHERE actor_id = ?)",
 				userID, userID, userID,
 			)
 		}

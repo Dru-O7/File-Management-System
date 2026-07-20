@@ -30,7 +30,7 @@ func (h *Handler) Upload(c echo.Context) error {
 	targetOwnerIDsStr := c.FormValue("target_owner_ids")
 	var targetOwnerIDs []uuid.UUID
 	var err error
-	if category != "Official Circular" && category != "Assignment Broadcast" {
+	if category != "Assignment Broadcast" {
 		ids := strings.Split(targetOwnerIDsStr, ",")
 		for _, idStr := range ids {
 			idStr = strings.TrimSpace(idStr)
@@ -622,6 +622,23 @@ func (h *Handler) ArchiveFile(c echo.Context) error {
 	}
 
 	res, err := h.service.ArchiveFile(fileID, userID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) ReopenFile(c echo.Context) error {
+	authenticatedUserIDStr := c.Get("user_id").(string)
+	userID, _ := uuid.Parse(authenticatedUserIDStr)
+
+	idStr := c.Param("id")
+	fileID, err := uuid.Parse(idStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid file ID"})
+	}
+
+	res, err := h.service.ReopenFile(fileID, userID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
