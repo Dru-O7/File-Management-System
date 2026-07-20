@@ -401,7 +401,7 @@
 
 .btn-secondary:hover { background: #f1f5f9; }
 
-.btn-danger {
+.btn-danger, .btn-delete {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -416,7 +416,7 @@
   transition: all 0.15s;
 }
 
-.btn-danger:hover { background: #fee2e2; }
+.btn-danger:hover, .btn-delete:hover { background: #fee2e2; }
 
 .btn-edit {
   display: inline-flex;
@@ -510,7 +510,7 @@ tr:hover td { background: #fafafa; }
 }
 
 /* ── Delete Confirm Inline ─────────────────────────────────────────── */
-.delete-confirm {
+.delete-confirm, .delete-confirm-row {
   display: flex;
   align-items: center;
   gap: 6px;
