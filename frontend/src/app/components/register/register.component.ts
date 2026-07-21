@@ -54,7 +54,7 @@ export class RegisterComponent {
     this.api.signup(nameTrimed, emailTrimed, this.password).subscribe({
       next: (res) => {
         this.loading = false;
-        this.auth.setCurrentUser(res.user, res.token);
+        this.auth.setCurrentUser({ ...res.user, isAdmin: res.isAdmin }, res.token);
         this.router.navigate(['/dashboard']);
       },
       error: (err) => {

@@ -125,9 +125,9 @@
                 </svg>
                 Users by Role
               </div>
-              <div class="role-row" *ngFor="let r of roles">
-                <span class="role-name"><span class="badge" [ngClass]="getRoleBadgeClass(r)">{{r}}</span></span>
-                <span class="role-count">{{countByRole(r)}}</span>
+              <div class="role-row" *ngFor="let r of dbRoles">
+                <span class="role-name"><span class="badge" [ngClass]="getRoleBadgeClass(r.RoleName)">{{r.RoleName}}</span></span>
+                <span class="role-count">{{countByRole(r.RoleName)}}</span>
               </div>
             </div>
             <div class="panel">
@@ -206,7 +206,7 @@
                   <td class="td-muted">{{formatDate(u.CreatedAt)}}</td>
                   <td>
                     <div class="actions-row" *ngIf="deleteConfirmUserId !== u.ID">
-                      <button class="btn-edit" (click)="openEditUser(u)">
+                      <button class="btn-edit" (click)="openEditUser(u)" *ngIf="u.Role !== 'SuperAdmin'">
                         <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke-width="2.5"
                           stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round"
@@ -214,7 +214,7 @@
                         </svg>
                         Edit
                       </button>
-                      <button class="btn-danger" (click)="confirmDeleteUser(u.ID)" *ngIf="isSuperAdmin">
+                      <button class="btn-danger" (click)="confirmDeleteUser(u.ID)" *ngIf="isSuperAdmin && u.Role !== 'SuperAdmin' && u.ID !== currentUser.ID">
                         <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke-width="2.5"
                           stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round"
@@ -223,7 +223,7 @@
                         Delete
                       </button>
                     </div>
-                    <div class="delete-confirm" *ngIf="deleteConfirmUserId === u.ID && isSuperAdmin">
+                    <div class="delete-confirm" *ngIf="deleteConfirmUserId === u.ID && isSuperAdmin && u.Role !== 'SuperAdmin' && u.ID !== currentUser.ID">
                       Sure?
                       <button class="btn-danger" style="padding:3px 8px;" (click)="deleteUser(u.ID)">Yes</button>
                       <button class="btn-secondary" style="padding:3px 8px;font-size:11px;"
@@ -651,7 +651,7 @@
   <!-- ══════════════════════════════════════════════════════════════════ -->
   <!-- MODAL: ADD / EDIT USER -->
   <!-- ══════════════════════════════════════════════════════════════════ -->
-  <div class="modal-overlay" *ngIf="showUserModal" (click)="showUserModal=false">
+  <div class="modal-overlay" *ngIf="showUserModal">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <span class="modal-title">{{editingUser ? 'Edit User' : 'Create New User'}}</span>
@@ -708,7 +708,7 @@
   <!-- ══════════════════════════════════════════════════════════════════ -->
   <!-- MODAL: ADD / EDIT RECEIPT TYPE -->
   <!-- ══════════════════════════════════════════════════════════════════ -->
-  <div class="modal-overlay" *ngIf="showDocTypeModal" (click)="showDocTypeModal=false">
+  <div class="modal-overlay" *ngIf="showDocTypeModal">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <span class="modal-title">{{editingDocType ? 'Edit Receipt Type' : 'New Receipt Type'}}</span>
@@ -756,7 +756,7 @@
   <!-- ══════════════════════════════════════════════════════════════════ -->
   <!-- MODAL: ADD / EDIT FILE CATEGORY -->
   <!-- ══════════════════════════════════════════════════════════════════ -->
-  <div class="modal-overlay" *ngIf="showFileCategoryModal" (click)="showFileCategoryModal=false">
+  <div class="modal-overlay" *ngIf="showFileCategoryModal">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <span class="modal-title">{{editingFileCategory ? 'Edit File Category' : 'New File Category'}}</span>
@@ -794,7 +794,7 @@
   <!-- ══════════════════════════════════════════════════════════════════ -->
   <!-- MODAL: ADD / EDIT FILE SUB-CATEGORY -->
   <!-- ══════════════════════════════════════════════════════════════════ -->
-  <div class="modal-overlay" *ngIf="showFileSubCategoryModal" (click)="showFileSubCategoryModal=false">
+  <div class="modal-overlay" *ngIf="showFileSubCategoryModal">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <span class="modal-title">{{editingFileSubCategory ? 'Edit File Sub-category' : 'New File Sub-category'}}</span>
@@ -839,7 +839,7 @@
   <!-- ══════════════════════════════════════════════════════════════════ -->
   <!-- MODAL: ADD/EDIT ORGANIZATION -->
   <!-- ══════════════════════════════════════════════════════════════════ -->
-  <div class="modal-overlay" *ngIf="showSchoolModal" (click)="showSchoolModal=false">
+  <div class="modal-overlay" *ngIf="showSchoolModal">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <span class="modal-title">{{editingSchool ? 'Edit Organization' : 'Create Organization'}}</span>
@@ -959,14 +959,14 @@
                     </svg>
                     Edit
                   </button>
-                  <button class="btn-danger" (click)="confirmDeleteRole(r.ID)">
+                  <button class="btn-danger" (click)="confirmDeleteRole(r.ID)" *ngIf="r.RoleName !== 'SuperAdmin'">
                     <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                     </svg>
                     Delete
                   </button>
                 </div>
-                <div class="delete-confirm" *ngIf="deleteConfirmRoleId === r.ID">
+                <div class="delete-confirm" *ngIf="deleteConfirmRoleId === r.ID && r.RoleName !== 'SuperAdmin'">
                   <span>Sure?</span>
                   <button class="btn-danger" style="padding:3px 8px;" (click)="deleteRole(r.ID)">Yes</button>
                   <button class="btn-secondary" style="padding:3px 8px;font-size:11px;" (click)="deleteConfirmRoleId=''">No</button>
@@ -982,7 +982,7 @@
   <!-- ══════════════════════════════════════════════════════════════════ -->
   <!-- MODAL: CREATE/EDIT ROLE (SuperAdmin only) -->
   <!-- ══════════════════════════════════════════════════════════════════ -->
-  <div class="modal-overlay" *ngIf="showRoleModal" (click)="showRoleModal=false">
+  <div class="modal-overlay" *ngIf="showRoleModal">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <span class="modal-title">{{editingRole ? 'Edit Role' : 'Create Role'}}</span>

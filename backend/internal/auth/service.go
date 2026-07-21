@@ -45,9 +45,11 @@ func (s *service) Login(req LoginRequest) (*AuthResponse, error) {
 	}
 
 	user.PasswordHash = ""
+	isAdmin := s.repo.CheckAdminAccess(user.Role)
 	return &AuthResponse{
-		Token: tokenString,
-		User:  *user,
+		Token:   tokenString,
+		User:    *user,
+		IsAdmin: isAdmin,
 	}, nil
 }
 
@@ -100,9 +102,11 @@ func (s *service) Signup(req SignupRequest) (*AuthResponse, error) {
 	}
 
 	newUser.PasswordHash = ""
+	isAdmin := s.repo.CheckAdminAccess(newUser.Role)
 	return &AuthResponse{
-		Token: tokenString,
-		User:  *newUser,
+		Token:   tokenString,
+		User:    *newUser,
+		IsAdmin: isAdmin,
 	}, nil
 }
 

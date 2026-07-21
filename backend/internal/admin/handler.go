@@ -105,8 +105,15 @@ func (h *Handler) DeleteUser(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid user ID"})
 	}
-	if err := h.service.DeleteUser(id); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to delete user"})
+
+	actorUserIDStr, _ := c.Get("user_id").(string)
+	actorUserID, err := uuid.Parse(actorUserIDStr)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized: invalid user ID"})
+	}
+
+	if err := h.service.DeleteUser(id, actorUserID); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]string{"message": "User deleted successfully"})
 }

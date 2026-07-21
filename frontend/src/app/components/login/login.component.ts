@@ -38,9 +38,8 @@ export class LoginComponent {
     this.api.login(emailTrimmed, this.password).subscribe({
       next: (res) => {
         this.loading = false;
-        this.auth.setCurrentUser(res.user, res.token);
-        const role = res.user.Role || res.user.role;
-        if (role === 'Admin' || role === 'SuperAdmin') {
+        this.auth.setCurrentUser({ ...res.user, isAdmin: res.isAdmin }, res.token);
+        if (res.isAdmin) {
           this.router.navigate(['/admin']);
         } else {
           this.router.navigate(['/dashboard']);

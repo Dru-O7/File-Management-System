@@ -279,11 +279,7 @@
 
           <!-- School Config -->
           <button
-            *ngIf="
-              (user?.Role || user?.role) === 'DHE' ||
-              (user?.Role || user?.role) === 'Admin' ||
-              (user?.Role || user?.role) === 'SuperAdmin'
-            "
+            *ngIf="isSuperAdminOrDHE"
             class="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-lg transition-all border-0 cursor-pointer text-left bg-transparent"
             [class.bg-[var(--primary-light)]]="
               router.url === '/admin/schools'
@@ -357,12 +353,7 @@
 
           <!-- Role Management Config -->
           <button
-            *ngIf="
-              (user?.Role || user?.role) === 'SuperAdmin' ||
-              (user?.Role || user?.role) === 'Admin' ||
-              (user?.Role || user?.role) === 'DHE' ||
-              (user?.Role || user?.role) === 'School Admin'
-            "
+            *ngIf="hasAdminAccess"
             class="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-lg transition-all border-0 cursor-pointer text-left bg-transparent"
             [class.bg-[var(--primary-light)]]="
               router.url === '/admin/roles'
@@ -1000,11 +991,7 @@
             User Management
           </button>
           <button
-            *ngIf="
-              (user?.Role || user?.role) === 'DHE' ||
-              (user?.Role || user?.role) === 'Admin' ||
-              (user?.Role || user?.role) === 'SuperAdmin'
-            "
+            *ngIf="isSuperAdminOrDHE"
             class="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-lg transition-all border-0 cursor-pointer text-left bg-transparent text-[var(--text-secondary)] hover:bg-[var(--background)]"
             (click)="navigateToAdminSection('schools'); toggleMobileMenu()"
           >
@@ -1017,12 +1004,7 @@
             Document Dashboard
           </button>
           <button
-            *ngIf="
-              (user?.Role || user?.role) === 'SuperAdmin' ||
-              (user?.Role || user?.role) === 'Admin' ||
-              (user?.Role || user?.role) === 'DHE' ||
-              (user?.Role || user?.role) === 'School Admin'
-            "
+            *ngIf="hasAdminAccess"
             class="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-lg transition-all border-0 cursor-pointer text-left bg-transparent text-[var(--text-secondary)] hover:bg-[var(--background)]"
             (click)="navigateToAdminSection('roles'); toggleMobileMenu()"
           >

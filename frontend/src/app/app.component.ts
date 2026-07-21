@@ -285,4 +285,18 @@ export class AppComponent implements OnInit, OnDestroy {
   getCategoryIcon(name: string): string {
     return '';
   }
+
+  get currentUser(): any {
+    return this.authService.getCurrentUser();
+  }
+
+  get hasAdminAccess(): boolean {
+    const role = this.currentUser?.Role || this.currentUser?.role;
+    return !!this.currentUser?.isAdmin || role === 'SuperAdmin' || role === 'Admin' || role === 'DHE' || role === 'School Admin';
+  }
+
+  get isSuperAdminOrDHE(): boolean {
+    const role = this.currentUser?.Role || this.currentUser?.role;
+    return this.hasAdminAccess && (role === 'SuperAdmin' || role === 'Admin' || role === 'DHE');
+  }
 }

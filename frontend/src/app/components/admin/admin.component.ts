@@ -98,10 +98,7 @@ export class AdminComponent implements OnInit {
   get availableRoles(): string[] {
     const actorRole = this.currentUser?.Role || this.currentUser?.role;
     if (actorRole === 'SuperAdmin') {
-      return Array.from(new Set([
-        ...this.roles,
-        ...this.dbRoles.map(r => r.RoleName)
-      ]));
+      return Array.from(new Set(this.dbRoles.map(r => r.RoleName)));
     }
 
     const actorRoleRec = this.dbRoles.find(r => r.RoleName === actorRole);
@@ -143,7 +140,7 @@ export class AdminComponent implements OnInit {
     if (this.isSuperAdmin) {
       this.loadSchools();
     }
-    const hasAdminAccess = (role === 'Admin' || role === 'SuperAdmin' || role === 'DHE' || role === 'School Admin');
+    const hasAdminAccess = !!this.currentUser?.isAdmin || role === 'SuperAdmin' || role === 'Admin' || role === 'DHE' || role === 'School Admin';
     if (hasAdminAccess) {
       this.loadRoles();
     }
@@ -157,10 +154,18 @@ export class AdminComponent implements OnInit {
     });
   }
 
+  evaluatePermissions() {
+    const role = this.currentUser?.Role || this.currentUser?.role;
+    const userRoleRec = this.dbRoles.find(r => r.RoleName === role);
+    this.isSuperAdmin = (role === 'SuperAdmin' || !userRoleRec?.ParentRoleID || userRoleRec?.ParentRoleName === 'SuperAdmin');
+  }
+
   updateActiveSectionFromUrl(url: string) {
     const path = url.split('?')[0]; // strip query parameters
     const role = this.currentUser?.Role || this.currentUser?.role;
-    const isDHEOrAdmin = (role === 'Admin' || role === 'SuperAdmin' || role === 'DHE');
+    const userRoleRec = this.dbRoles.find(r => r.RoleName === role);
+    this.isSuperAdmin = (role === 'SuperAdmin' || !userRoleRec?.ParentRoleID || userRoleRec?.ParentRoleName === 'SuperAdmin');
+    const isDHEOrAdmin = this.isSuperAdmin;
 
     if (path.endsWith('/users')) {
       this.activeSection = 'users';
@@ -174,7 +179,7 @@ export class AdminComponent implements OnInit {
     } else if (path.endsWith('/doctypes')) {
       this.activeSection = 'doctypes';
     } else if (path.endsWith('/roles')) {
-      const hasAdminAccess = (role === 'Admin' || role === 'SuperAdmin' || role === 'DHE' || role === 'School Admin');
+      const hasAdminAccess = !!this.currentUser?.isAdmin || role === 'SuperAdmin' || role === 'Admin' || role === 'DHE' || role === 'School Admin';
       if (hasAdminAccess) {
         this.activeSection = 'roles';
       } else {
@@ -817,6 +822,7 @@ export class AdminComponent implements OnInit {
       next: (res: any) => {
         this.dbRoles = res || [];
         this.applyRoleFilter();
+        this.evaluatePermissions();
         this.loadingRoles = false;
       },
       error: (err: any) => {

@@ -14,7 +14,7 @@ type Service interface {
 	GetAllUsers(actorRole string, actorSchoolID *uuid.UUID) ([]UserResponse, error)
 	CreateUser(req CreateUserRequest, actorRole string, actorSchoolID *uuid.UUID) (*UserResponse, error)
 	UpdateUser(id uuid.UUID, req UpdateUserRequest, actorRole string, actorSchoolID *uuid.UUID) (*UserResponse, error)
-	DeleteUser(id uuid.UUID) error
+	DeleteUser(id uuid.UUID, actorUserID uuid.UUID) error
 	GetAllDocumentTypes(actorRole string, actorSchoolID *uuid.UUID) ([]DocumentTypeResponse, error)
 	CreateDocumentType(req CreateDocTypeRequest, actorRole string, actorSchoolID *uuid.UUID) (*DocumentTypeResponse, error)
 	UpdateDocumentType(id uuid.UUID, req UpdateDocTypeRequest) (*DocumentTypeResponse, error)
@@ -188,6 +188,10 @@ func (s *service) UpdateUser(id uuid.UUID, req UpdateUserRequest, actorRole stri
 		return nil, errors.New("user not found")
 	}
 
+	if strings.EqualFold(u.Role, "SuperAdmin") {
+		return nil, errors.New("the system SuperAdmin user cannot be updated from the user management screen")
+	}
+
 	// If changing role or email, block if user is referenced in document workflows or logs
 	roleChanged := req.Role != "" && req.Role != u.Role
 	emailChanged := req.Email != "" && req.Email != u.Email
@@ -286,7 +290,19 @@ func (s *service) UpdateUser(id uuid.UUID, req UpdateUserRequest, actorRole stri
 	}, nil
 }
 
-func (s *service) DeleteUser(id uuid.UUID) error {
+func (s *service) DeleteUser(id uuid.UUID, actorUserID uuid.UUID) error {
+	if id == actorUserID {
+		return errors.New("cannot delete yourself")
+	}
+
+	u, err := s.repo.GetUserByID(id)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	if strings.EqualFold(u.Role, "SuperAdmin") {
+		return errors.New("the system SuperAdmin user cannot be deleted")
+	}
+
 	repoImpl, ok := s.repo.(*repository)
 	if !ok {
 		return errors.New("invalid repository type")
