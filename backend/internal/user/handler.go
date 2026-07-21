@@ -171,3 +171,35 @@ func (h *Handler) UpdateAvatar(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Profile picture updated successfully"})
 }
+
+// UpdateName allows authenticated user to update their full name
+func (h *Handler) UpdateName(c echo.Context) error {
+	type Request struct {
+		Name string `json:"name"`
+	}
+
+	actorIDStr := c.Get("user_id").(string)
+	actorID, err := uuid.Parse(actorIDStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid user ID in token"})
+	}
+
+	var req Request
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
+	}
+	if req.Name == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "name is required"})
+	}
+
+	var user models.User
+	if err := h.db.First(&user, "id = ?", actorID).Error; err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
+	}
+
+	if err := h.db.Model(&user).Update("name", req.Name).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to update name"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "Name updated successfully"})
+}

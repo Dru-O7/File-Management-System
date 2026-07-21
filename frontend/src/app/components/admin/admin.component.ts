@@ -137,11 +137,9 @@ export class AdminComponent implements OnInit {
     this.loadDocTypes();
     this.loadFileCategories();
     this.loadFileSubCategories();
-    if (this.isSuperAdmin) {
-      this.loadSchools();
-    }
     const hasAdminAccess = !!this.currentUser?.isAdmin || role === 'SuperAdmin' || role === 'Admin' || role === 'DHE' || role === 'School Admin';
     if (hasAdminAccess) {
+      this.loadSchools();
       this.loadRoles();
     }
 
@@ -170,7 +168,8 @@ export class AdminComponent implements OnInit {
     if (path.endsWith('/users')) {
       this.activeSection = 'users';
     } else if (path.endsWith('/schools')) {
-      if (isDHEOrAdmin) {
+      const hasAdminAccess = !!this.currentUser?.isAdmin || role === 'SuperAdmin' || role === 'Admin' || role === 'DHE' || role === 'School Admin';
+      if (hasAdminAccess) {
         this.activeSection = 'schools';
       } else {
         this.activeSection = 'overview';
@@ -505,12 +504,19 @@ export class AdminComponent implements OnInit {
 
   openCreateSchool() {
     this.editingSchool = null;
+    let defaultParentId = null;
+    const role = this.currentUser?.Role || this.currentUser?.role;
+    if (role !== 'SuperAdmin' && this.currentUser && this.currentUser.SchoolID) {
+      const myOrg = this.schools.find(s => s.TenantID === this.currentUser.SchoolID);
+      if (myOrg) {
+        defaultParentId = myOrg.ID;
+      }
+    }
     this.schoolForm = {
       organizationName: '',
       type: 'school',
-      parentOrgId: null,
+      parentOrgId: defaultParentId,
       pointOfContactId: null,
-      adminName: '',
       adminEmail: '',
       adminPassword: ''
     };
@@ -525,7 +531,6 @@ export class AdminComponent implements OnInit {
       type: org.Type,
       parentOrgId: org.ParentOrgID,
       pointOfContactId: org.PointOfContactID,
-      adminName: '',
       adminEmail: '',
       adminPassword: ''
     };

@@ -975,12 +975,38 @@ func (s *service) GetAllOrganizations(actorRole string, actorSchoolID *uuid.UUID
 		}
 		var actorOrg models.Organization
 		repoImpl, ok := s.repo.(*repository)
-		if ok {
-			repoImpl.db.Where("tenant_id = ?", *actorSchoolID).First(&actorOrg)
+		if !ok {
+			return nil, errors.New("repository conversion failed")
+		}
+		repoImpl.db.Where("tenant_id = ?", *actorSchoolID).First(&actorOrg)
+
+		// Recursive helper function to check if checkOrgID is a descendant of ancestorOrgID
+		isDescendant := func(checkOrgID uuid.UUID, ancestorOrgID uuid.UUID) bool {
+			currID := checkOrgID
+			visited := make(map[uuid.UUID]bool)
+			for {
+				if visited[currID] {
+					break // prevent infinite loops in cycles
+				}
+				visited[currID] = true
+
+				var o models.Organization
+				if err := repoImpl.db.Select("id, parent_org_id").Where("id = ?", currID).First(&o).Error; err != nil {
+					return false
+				}
+				if o.ParentOrgID == nil {
+					return false
+				}
+				if *o.ParentOrgID == ancestorOrgID {
+					return true
+				}
+				currID = *o.ParentOrgID
+			}
+			return false
 		}
 
 		for _, org := range orgs {
-			if org.ID == actorOrg.ID || (org.ParentOrgID != nil && *org.ParentOrgID == actorOrg.ID) {
+			if org.ID == actorOrg.ID || isDescendant(org.ID, actorOrg.ID) {
 				filtered = append(filtered, org)
 			}
 		}
@@ -1014,8 +1040,19 @@ func (s *service) GetAllOrganizations(actorRole string, actorSchoolID *uuid.UUID
 }
 
 func (s *service) CreateOrganization(req CreateOrganizationRequest, actorRole string, actorSchoolID *uuid.UUID) (*OrganizationResponse, error) {
-	if actorRole != "SuperAdmin" && actorRole != "DHE" && actorRole != "Admin" {
-		return nil, errors.New("access denied: only SuperAdmin and DHE Admins can create organizations")
+	// Ensure the actor has admin access (either SuperAdmin, or a role with IsAdminAccess = true)
+	isAdmin := false
+	if actorRole == "SuperAdmin" {
+		isAdmin = true
+	} else if actorSchoolID != nil {
+		roleRec, err := s.repo.GetRoleByName(actorRole, actorSchoolID)
+		if err == nil && roleRec.IsAdminAccess {
+			isAdmin = true
+		}
+	}
+
+	if !isAdmin {
+		return nil, errors.New("access denied: only administrative users can create organizations")
 	}
 	if strings.TrimSpace(req.OrganizationName) == "" {
 		return nil, errors.New("organization name is required")
@@ -1067,9 +1104,16 @@ func (s *service) CreateOrganization(req CreateOrganizationRequest, actorRole st
 		}
 		tenantID = &newSchool.ID
 
-		childRoleName := "School Admin"
-		if actorRole == "SuperAdmin" {
-			childRoleName = "DHE"
+		childRoleName := req.Type
+		if childRoleName == "" {
+			childRoleName = "School Admin"
+		} else {
+			// Title case the role name
+			runes := []rune(childRoleName)
+			if len(runes) > 0 && runes[0] >= 'a' && runes[0] <= 'z' {
+				runes[0] = runes[0] - 'a' + 'A'
+			}
+			childRoleName = string(runes)
 		}
 
 		var parentRoleID *uuid.UUID
@@ -1110,7 +1154,7 @@ func (s *service) CreateOrganization(req CreateOrganizationRequest, actorRole st
 
 		newUser := &models.User{
 			ID:           uuid.New(),
-			Name:         req.AdminName,
+			Name:         "Admin",
 			Email:        req.AdminEmail,
 			PasswordHash: string(hash),
 			Role:         childRoleName,

@@ -93,219 +93,45 @@ func main() {
 
 
 func seedData(gormDB *gorm.DB) {
-	// 1. Seed School
-	var schoolCount int64
-	gormDB.Model(&models.School{}).Count(&schoolCount)
-	var school models.School
-	if schoolCount == 0 {
-		school = models.School{
-			ID:   uuid.New(),
-			Name: "Greenwood High School",
-			Slug: "greenwood-high",
-		}
-		gormDB.Create(&school)
-		log.Println("Seeded school: Greenwood High School")
-	} else {
-		gormDB.First(&school)
-	}
-
-	// 2. Seed Users (idempotent — checks each email individually)
-	hash, err := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)
+	// Ensure SuperAdmin role exists
+	var superAdminRole models.Role
+	err := gormDB.Where("role_name = ? AND tenant_id IS NULL", "SuperAdmin").First(&superAdminRole).Error
 	if err != nil {
-		log.Fatal("Failed to hash default password:", err)
-	}
-
-	// 2a. Seed hierarchical roles
-	rolesToSeed := []struct {
-		Name          string
-		IsAdminAccess bool
-		ParentName    string
-	}{
-		{"SuperAdmin", true, ""},
-		{"Admin", true, "SuperAdmin"},
-		{"DHE", true, "Admin"},
-		{"School Admin", true, "DHE"},
-		{"Teaching staff", false, "School Admin"},
-		{"non-teaching", false, "School Admin"},
-		{"vocational", false, "School Admin"},
-	}
-
-	for _, r := range rolesToSeed {
-		var existing models.Role
-		if err := gormDB.Where("role_name = ?", r.Name).First(&existing).Error; err != nil {
-			var parentID *uuid.UUID
-			var parentPath string
-			if r.ParentName != "" {
-				var p models.Role
-				if err := gormDB.Where("role_name = ?", r.ParentName).First(&p).Error; err == nil {
-					parentID = &p.ID
-					parentPath = p.Path
-				}
-			}
-			newID := uuid.New()
-			var path string
-			if parentID == nil {
-				path = "/" + newID.String() + "/"
-			} else {
-				path = parentPath + newID.String() + "/"
-			}
-			newRole := models.Role{
-				ID:            newID,
-				RoleName:      r.Name,
-				IsAdminAccess: r.IsAdminAccess,
-				ParentRoleID:  parentID,
-				TenantID:      nil,
-				CreatedBy:     "System",
-				Path:          path,
-			}
-			gormDB.Create(&newRole)
-			log.Printf("Seeded role: %s", r.Name)
+		newRoleID := uuid.New()
+		superAdminRole = models.Role{
+			ID:            newRoleID,
+			RoleName:      "SuperAdmin",
+			IsAdminAccess: true,
+			ParentRoleID:  nil,
+			TenantID:      nil,
+			CreatedBy:     "System",
+			Path:          "/" + newRoleID.String() + "/",
 		}
-	}
-
-	type seedUser struct {
-		Name         string
-		Email        string
-		Role         string
-		ClassSection string
-		Subject      string
-		SchoolSlug   string
-	}
-
-	seedUsers := []seedUser{
-		// SuperAdmin (No school)
-		{Name: "Super Admin", Email: "superadmin@school.edu", Role: "SuperAdmin", SchoolSlug: ""},
-		// vocational (Modern School)
-		{Name: "Aarav Sharma", Email: "aarav@school.edu", Role: "vocational", ClassSection: "Department A", SchoolSlug: "modern-school"},
-		{Name: "Ananya Iyer", Email: "ananya@school.edu", Role: "vocational", ClassSection: "Department B", SchoolSlug: "modern-school"},
-		{Name: "Rohan Das", Email: "rohan@school.edu", Role: "vocational", ClassSection: "Department C", SchoolSlug: "modern-school"},
-		{Name: "Kavya Menon", Email: "kavya@school.edu", Role: "vocational", ClassSection: "Department D", SchoolSlug: "modern-school"},
-		// Teaching staff
-		{Name: "Priya Patel", Email: "priya@school.edu", Role: "Teaching staff", ClassSection: "Department A", Subject: "Science", SchoolSlug: "greenwood-high"},
-		{Name: "Neha Reddy", Email: "neha@school.edu", Role: "Teaching staff", ClassSection: "Department B", Subject: "History", SchoolSlug: "dps"},
-		{Name: "Vikram Iyer", Email: "vikram@school.edu", Role: "Teaching staff", ClassSection: "Department C", Subject: "Mathematics", SchoolSlug: "modern-school"},
-		{Name: "Meera Menon", Email: "meera@school.edu", Role: "Teaching staff", ClassSection: "Department D", Subject: "English", SchoolSlug: "modern-school"},
-		// School Admins
-		{Name: "Rahul Gupta", Email: "rahul@school.edu", Role: "School Admin", SchoolSlug: "greenwood-high"},
-		{Name: "Gaurav Verma", Email: "gaurav@school.edu", Role: "School Admin", SchoolSlug: "dps"},
-		{Name: "Shalini Sen", Email: "shalini@school.edu", Role: "School Admin", SchoolSlug: "modern-school"},
-		// DHE (No school)
-		{Name: "System Administrator", Email: "admin@school.edu", Role: "DHE", SchoolSlug: ""},
-		// Non-teaching
-		{Name: "Deepak Singh", Email: "deepak@school.edu", Role: "non-teaching", SchoolSlug: "greenwood-high"},
-	}
-
-	for _, su := range seedUsers {
-		var existing models.User
-		result := gormDB.Where("email = ?", su.Email).First(&existing)
-		if result.Error != nil {
-			var schoolID *uuid.UUID
-			if su.SchoolSlug != "" {
-				var sch models.School
-				if err := gormDB.Where("slug = ?", su.SchoolSlug).First(&sch).Error; err == nil {
-					schoolID = &sch.ID
-				}
-			}
-			newUser := models.User{
-				ID:           uuid.New(),
-				Name:         su.Name,
-				Email:        su.Email,
-				PasswordHash: string(hash),
-				Role:         su.Role,
-				SchoolID:     schoolID,
-				ClassSection: su.ClassSection,
-				Subject:      su.Subject,
-			}
-			gormDB.Create(&newUser)
-			log.Printf("Seeded user: %s (%s)", su.Name, su.Role)
+		if err := gormDB.Create(&superAdminRole).Error; err != nil {
+			log.Fatalf("Failed to seed SuperAdmin role: %v", err)
 		}
+		log.Println("Seeded SuperAdmin role.")
 	}
 
-	// 2b. Seed organizations matching the schools
-	var schoolsList []models.School
-	gormDB.Find(&schoolsList)
-	for _, sch := range schoolsList {
-		var count int64
-		gormDB.Model(&models.Organization{}).Where("tenant_id = ?", sch.ID).Count(&count)
-		if count == 0 {
-			var adminUser models.User
-			var pocID *uuid.UUID
-			adminEmail := ""
-			switch sch.Slug {
-			case "greenwood-high":
-				adminEmail = "rahul@school.edu"
-			case "dps":
-				adminEmail = "gaurav@school.edu"
-			case "modern-school":
-				adminEmail = "shalini@school.edu"
-			}
-			if adminEmail != "" {
-				if err := gormDB.Where("email = ?", adminEmail).First(&adminUser).Error; err == nil {
-					pocID = &adminUser.ID
-				}
-			}
-
-			newOrg := models.Organization{
-				ID:               uuid.New(),
-				OrganizationName: sch.Name,
-				Type:             "school",
-				PointOfContactID: pocID,
-				CreatedBy:        "SuperAdmin",
-				TenantID:         &sch.ID,
-			}
-			gormDB.Create(&newOrg)
-			log.Printf("Seeded organization for school: %s", sch.Name)
+	// Ensure default SuperAdmin user exists
+	var superAdminUser models.User
+	err = gormDB.Where("role = ?", "SuperAdmin").First(&superAdminUser).Error
+	if err != nil {
+		hash, err := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)
+		if err != nil {
+			log.Fatal(err)
 		}
-	}
-
-
-
-	// 3. Seed Document/Receipt Types for all schools
-	var schools []models.School
-	gormDB.Find(&schools)
-
-	for _, s := range schools {
-		docTypes := []models.DocumentType{
-			{
-				SchoolID:       s.ID,
-				Name:           "Staff Grievance",
-				Slug:           "staff-grievance",
-				WorkflowStages: `[{"stage": 1, "role": "Teaching staff", "label": "Department Head", "optional": false}]`,
-				RequiredFields: `[]`,
-			},
-			{
-				SchoolID:       s.ID,
-				Name:           "Infrastructure Issue",
-				Slug:           "infrastructure-issue",
-				WorkflowStages: `[{"stage": 1, "role": "School Admin", "label": "School Admin Final approval", "optional": false}]`,
-				RequiredFields: `["reason", "urgency"]`,
-			},
-			{
-				SchoolID:       s.ID,
-				Name:           "Disciplinary Issue",
-				Slug:           "disciplinary-issue",
-				WorkflowStages: `[{"stage": 1, "role": "Teaching staff", "label": "Department Head", "optional": false}]`,
-				RequiredFields: `["event_name", "event_date"]`,
-			},
-			{
-				SchoolID:       s.ID,
-				Name:           "Audit Report",
-				Slug:           "audit-report",
-				WorkflowStages: `[{"stage": 1, "role": "School Admin", "label": "School Admin Approval", "optional": false}]`,
-				RequiredFields: `["audit_reason", "percentage"]`,
-			},
+		superAdminUser = models.User{
+			ID:           uuid.New(),
+			Name:         "Super Admin",
+			Email:        "superadmin@school.edu",
+			PasswordHash: string(hash),
+			Role:         "SuperAdmin",
+			SchoolID:     nil,
 		}
-
-		// Ensure Official Circular category is deleted from database
-		gormDB.Where("slug = ?", "official-circular").Delete(&models.DocumentType{})
-
-		for i := range docTypes {
-			var existing models.DocumentType
-			if err := gormDB.Where("school_id = ? AND slug = ?", s.ID, docTypes[i].Slug).First(&existing).Error; err != nil {
-				docTypes[i].ID = uuid.New()
-				gormDB.Create(&docTypes[i])
-				log.Printf("Seeded missing document type for school %s: %s", s.Name, docTypes[i].Name)
-			}
+		if err := gormDB.Create(&superAdminUser).Error; err != nil {
+			log.Fatalf("Failed to seed SuperAdmin user: %v", err)
 		}
+		log.Println("Seeded default SuperAdmin user (superadmin@school.edu).")
 	}
 }

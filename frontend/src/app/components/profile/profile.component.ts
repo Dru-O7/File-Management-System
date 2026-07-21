@@ -41,6 +41,8 @@ export class ProfileComponent implements OnInit {
   saving: boolean = false;
   saveSuccess: string = '';
   saveError: string = '';
+  profileName: string = '';
+  originalName: string = '';
 
   private avatarColors = [
     '#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'
@@ -59,9 +61,11 @@ export class ProfileComponent implements OnInit {
         return;
       }
       this.currentUser = user;
+      this.profileName = user.Name || user.name || '';
+      this.originalName = this.profileName;
       this.avatarPreview = user.Avatar || user.avatar || null;
       this.originalAvatar = this.avatarPreview;
-      const name: string = user.Name || user.name || '';
+      const name: string = this.profileName;
       const words = name.trim().split(' ').filter((w: string) => w.length > 0);
       this.avatarInitials = words.length >= 2
         ? (words[0][0] + words[words.length - 1][0]).toUpperCase()
@@ -103,11 +107,12 @@ export class ProfileComponent implements OnInit {
     this.saveError = '';
     this.saveSuccess = '';
 
+    const isNameChanged = this.profileName !== this.originalName;
     const isThemeChanged = this.currentTheme !== this.originalTheme;
     const isAvatarChanged = this.avatarPreview !== this.originalAvatar;
     const isPasswordAttempt = !!(this.currentPassword || this.newPassword || this.confirmPassword);
 
-    if (!isThemeChanged && !isAvatarChanged && !isPasswordAttempt) {
+    if (!isNameChanged && !isThemeChanged && !isAvatarChanged && !isPasswordAttempt) {
       this.saveError = 'No changes detected to save.';
       return;
     }
@@ -127,7 +132,7 @@ export class ProfileComponent implements OnInit {
       }
     }
 
-    if (!isAvatarChanged && !isPasswordAttempt) {
+    if (!isNameChanged && !isAvatarChanged && !isPasswordAttempt) {
       // Theme only change
       localStorage.setItem('theme', this.currentTheme);
       this.originalTheme = this.currentTheme;
@@ -137,6 +142,10 @@ export class ProfileComponent implements OnInit {
     }
 
     this.saving = true;
+
+    const nameReq = isNameChanged
+      ? this.http.put(`${this.apiUrl}/profile/name`, { name: this.profileName })
+      : of(null);
 
     const avatarReq = isAvatarChanged
       ? this.http.put(`${this.apiUrl}/profile/avatar`, { avatar: this.avatarPreview })
@@ -150,6 +159,7 @@ export class ProfileComponent implements OnInit {
       : of(null);
 
     forkJoin({
+      name: nameReq,
       avatar: avatarReq,
       password: passwordReq
     }).subscribe({
@@ -170,6 +180,18 @@ export class ProfileComponent implements OnInit {
         }
         
         this.saveSuccess = msg;
+
+        // Save Name to currentUser state
+        if (isNameChanged) {
+          const updatedUser = { 
+            ...this.currentUser, 
+            Name: this.profileName,
+            name: this.profileName
+          };
+          this.currentUser = updatedUser;
+          this.originalName = this.profileName;
+          this.auth.setCurrentUser(updatedUser, this.auth.getToken()!);
+        }
 
         // Save Theme to localStorage
         if (isThemeChanged) {

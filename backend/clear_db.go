@@ -42,6 +42,7 @@ func main() {
 	}
 
 	// 2. Delete non-SuperAdmin roles (tenant-specific roles)
+	_ = db.Exec("UPDATE roles SET parent_role_id = NULL;").Error
 	err = db.Exec("DELETE FROM roles WHERE tenant_id IS NOT NULL;").Error
 	if err != nil {
 		log.Printf("Error clearing custom roles: %v\n", err)

@@ -279,7 +279,7 @@
 
           <!-- School Config -->
           <button
-            *ngIf="isSuperAdminOrDHE"
+            *ngIf="hasAdminAccess"
             class="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-lg transition-all border-0 cursor-pointer text-left bg-transparent"
             [class.bg-[var(--primary-light)]]="
               router.url === '/admin/schools'
@@ -991,7 +991,7 @@
             User Management
           </button>
           <button
-            *ngIf="isSuperAdminOrDHE"
+            *ngIf="hasAdminAccess"
             class="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-lg transition-all border-0 cursor-pointer text-left bg-transparent text-[var(--text-secondary)] hover:bg-[var(--background)]"
             (click)="navigateToAdminSection('schools'); toggleMobileMenu()"
           >
