@@ -13,6 +13,7 @@ type School struct {
 	Name      string    `gorm:"size:255;not null"`
 	Slug      string    `gorm:"size:100;not null;uniqueIndex"`
 	Settings  string    `gorm:"type:text"` // JSON configuration for notifications or limits
+	ActiveState string  `gorm:"size:50;default:'active';not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -27,6 +28,7 @@ type User struct {
 	Subject      string     `gorm:"size:100"`                           // Assigned subject for Teacher
 	Phone        string     `gorm:"size:20"`                            // For notifications
 	Avatar       string     `gorm:"type:text"`                          // Profile picture base64 string
+	ActiveState  string     `gorm:"size:50;default:'active';not null"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 
@@ -322,6 +324,7 @@ type Organization struct {
 	PointOfContactID *uuid.UUID `gorm:"type:uuid"` // Links to User (Admin)
 	CreatedBy        string     `gorm:"size:255;not null"` // SuperAdmin
 	TenantID         *uuid.UUID `gorm:"type:uuid"` // tenantId if applicable
+	ActiveState      string     `gorm:"size:50;default:'active';not null"`
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 

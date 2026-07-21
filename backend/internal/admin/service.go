@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type Service interface {
@@ -1108,102 +1109,116 @@ func (s *service) CreateOrganization(req CreateOrganizationRequest, actorRole st
 		}
 	}
 
-	var tenantID *uuid.UUID
-	var pocID *uuid.UUID
-
 	if req.AdminEmail != "" {
-		newSchoolID := uuid.New()
-		baseSlug := strings.ToLower(strings.ReplaceAll(req.OrganizationName, " ", "-"))
-		slug := baseSlug + "-" + newSchoolID.String()[:8]
-		newSchool := &models.School{
-			ID:   newSchoolID,
-			Name: req.OrganizationName,
-			Slug: slug,
+		var existingUser models.User
+		if err := repoImpl.db.First(&existingUser, "email = ?", strings.TrimSpace(strings.ToLower(req.AdminEmail))).Error; err == nil {
+			return nil, errors.New("a user with this admin email already exists in the system")
 		}
-		if err := repoImpl.db.Create(newSchool).Error; err != nil {
-			return nil, errors.New("failed to create tenant school: " + err.Error())
-		}
-		tenantID = &newSchool.ID
+	}
 
+	var org *models.Organization
+	errTx := repoImpl.db.Transaction(func(tx *gorm.DB) error {
+		var tenantID *uuid.UUID
+		var pocID *uuid.UUID
 
-		childRoleName := "Admin " + req.OrganizationName
+		if req.AdminEmail != "" {
+			newSchoolID := uuid.New()
+			baseSlug := strings.ToLower(strings.ReplaceAll(req.OrganizationName, " ", "-"))
+			slug := baseSlug + "-" + newSchoolID.String()[:8]
+			newSchool := &models.School{
+				ID:   newSchoolID,
+				Name: req.OrganizationName,
+				Slug: slug,
+			}
+			if err := tx.Create(newSchool).Error; err != nil {
+				return errors.New("failed to create tenant school: " + err.Error())
+			}
+			tenantID = &newSchool.ID
 
-		var parentRoleID *uuid.UUID
-		var parentPath string
-		if creatorRoleRec != nil {
-			parentRoleID = &creatorRoleRec.ID
-			parentPath = creatorRoleRec.Path
-		}
+			childRoleName := "Admin " + req.OrganizationName
 
-		if parentOrgID != nil {
-			var parentOrg models.Organization
-			if err := repoImpl.db.Where("id = ?", *parentOrgID).First(&parentOrg).Error; err == nil && parentOrg.TenantID != nil {
-				var parentTenantRole models.Role
-				if err := repoImpl.db.Where("tenant_id = ? AND is_admin_access = true", *parentOrg.TenantID).First(&parentTenantRole).Error; err == nil {
-					parentRoleID = &parentTenantRole.ID
-					parentPath = parentTenantRole.Path
+			var parentRoleID *uuid.UUID
+			var parentPath string
+			if creatorRoleRec != nil {
+				parentRoleID = &creatorRoleRec.ID
+				parentPath = creatorRoleRec.Path
+			}
+
+			if parentOrgID != nil {
+				var parentOrg models.Organization
+				if err := tx.Where("id = ?", *parentOrgID).First(&parentOrg).Error; err == nil && parentOrg.TenantID != nil {
+					var parentTenantRole models.Role
+					if err := tx.Where("tenant_id = ? AND is_admin_access = true", *parentOrg.TenantID).First(&parentTenantRole).Error; err == nil {
+						parentRoleID = &parentTenantRole.ID
+						parentPath = parentTenantRole.Path
+					}
 				}
 			}
+
+			newRoleID := uuid.New()
+			var path string
+			if parentRoleID == nil {
+				path = "/" + newRoleID.String() + "/"
+			} else {
+				path = parentPath + newRoleID.String() + "/"
+			}
+			newRole := &models.Role{
+				ID:            newRoleID,
+				RoleName:      childRoleName,
+				IsAdminAccess: true,
+				ParentRoleID:  parentRoleID,
+				TenantID:      tenantID,
+				CreatedBy:     actorRole,
+				Path:          path,
+			}
+			if err := tx.Create(newRole).Error; err != nil {
+				return errors.New("failed to create organization admin role: " + err.Error())
+			}
+
+			password := req.AdminPassword
+			if password == "" {
+				password = "password"
+			}
+			hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+			if err != nil {
+				return err
+			}
+
+			newUser := &models.User{
+				ID:           uuid.New(),
+				Name:         "Admin",
+				Email:        strings.TrimSpace(strings.ToLower(req.AdminEmail)),
+				PasswordHash: string(hash),
+				Role:         childRoleName,
+				SchoolID:     tenantID,
+			}
+			if err := tx.Create(newUser).Error; err != nil {
+				return errors.New("failed to create point of contact admin user: " + err.Error())
+			}
+			pocID = &newUser.ID
+		} else if req.PointOfContactID != nil {
+			pocID = req.PointOfContactID
+			tenantID = req.TenantID
 		}
 
-		newRoleID := uuid.New()
-		var path string
-		if parentRoleID == nil {
-			path = "/" + newRoleID.String() + "/"
-		} else {
-			path = parentPath + newRoleID.String() + "/"
-		}
-		newRole := &models.Role{
-			ID:            newRoleID,
-			RoleName:      childRoleName,
-			IsAdminAccess: true,
-			ParentRoleID:  parentRoleID,
-			TenantID:      tenantID,
-			CreatedBy:     actorRole,
-			Path:          path,
-		}
-		if err := s.repo.CreateRole(newRole); err != nil {
-			return nil, errors.New("failed to create organization admin role: " + err.Error())
+		org = &models.Organization{
+			ID:               uuid.New(),
+			OrganizationName: req.OrganizationName,
+			Type:             req.Type,
+			ParentOrgID:      parentOrgID,
+			PointOfContactID: pocID,
+			CreatedBy:        actorRole,
+			TenantID:         tenantID,
 		}
 
-		password := req.AdminPassword
-		if password == "" {
-			password = "password"
+		if err := tx.Create(org).Error; err != nil {
+			return err
 		}
-		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-		if err != nil {
-			return nil, err
-		}
+		return nil
+	})
 
-		newUser := &models.User{
-			ID:           uuid.New(),
-			Name:         "Admin",
-			Email:        req.AdminEmail,
-			PasswordHash: string(hash),
-			Role:         childRoleName,
-			SchoolID:     tenantID,
-		}
-		if err := s.repo.CreateUser(newUser); err != nil {
-			return nil, errors.New("failed to create point of contact admin user: " + err.Error())
-		}
-		pocID = &newUser.ID
-	} else if req.PointOfContactID != nil {
-		pocID = req.PointOfContactID
-		tenantID = req.TenantID
-	}
-
-	org := &models.Organization{
-		ID:               uuid.New(),
-		OrganizationName: req.OrganizationName,
-		Type:             req.Type,
-		ParentOrgID:      parentOrgID,
-		PointOfContactID: pocID,
-		CreatedBy:        actorRole,
-		TenantID:         tenantID,
-	}
-
-	if err := repoImpl.db.Create(org).Error; err != nil {
-		return nil, err
+	if errTx != nil {
+		return nil, errTx
 	}
 
 	return s.GetOrganizationByID(org.ID)
@@ -1283,34 +1298,97 @@ func (s *service) UpdateOrganization(id uuid.UUID, req UpdateOrganizationRequest
 	return s.GetOrganizationByID(org.ID)
 }
 
-func (s *service) DeleteOrganization(id uuid.UUID, actorRole string, actorSchoolID *uuid.UUID) error {
-	if actorRole != "SuperAdmin" && actorRole != "DHE" && actorRole != "Admin" {
-		return errors.New("access denied: only SuperAdmin and DHE Admins can delete organizations")
+func deleteOrgRecursive(tx *gorm.DB, orgID uuid.UUID) error {
+	var childOrgs []models.Organization
+	if err := tx.Where("parent_org_id = ?", orgID).Find(&childOrgs).Error; err == nil {
+		for _, child := range childOrgs {
+			if err := deleteOrgRecursive(tx, child.ID); err != nil {
+				return err
+			}
+		}
 	}
+
+	var org models.Organization
+	if err := tx.Where("id = ?", orgID).First(&org).Error; err != nil {
+		return err
+	}
+
+	if org.TenantID != nil {
+		if err := tx.Where("school_id = ?", *org.TenantID).Delete(&models.User{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("tenant_id = ?", *org.TenantID).Delete(&models.Role{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("id = ?", *org.TenantID).Delete(&models.School{}).Error; err != nil {
+			return err
+		}
+	}
+
+	return tx.Where("id = ?", orgID).Delete(&models.Organization{}).Error
+}
+
+func (s *service) DeleteOrganization(id uuid.UUID, actorRole string, actorSchoolID *uuid.UUID) error {
+	repoImpl, ok := s.repo.(*repository)
+	if !ok {
+		return errors.New("repository conversion failed")
+	}
+
+	if actorRole == "SuperAdmin" {
+		return repoImpl.db.Transaction(func(tx *gorm.DB) error {
+			return deleteOrgRecursive(tx, id)
+		})
+	}
+
+	// Verify the actor has administrative access
+	isAdmin := false
+	if actorSchoolID != nil {
+		roleRec, err := s.repo.GetRoleByName(actorRole, actorSchoolID)
+		if err == nil && roleRec.IsAdminAccess {
+			isAdmin = true
+		}
+	}
+
+	if !isAdmin {
+		return errors.New("access denied: administrative access required to delete organizations")
+	}
+
 	org, err := s.repo.GetOrganizationByID(id)
 	if err != nil {
 		return err
 	}
 
-	if actorRole != "SuperAdmin" {
-		if actorSchoolID == nil {
-			return errors.New("actor organization context required")
-		}
-		repoImpl, ok := s.repo.(*repository)
-		if !ok {
-			return errors.New("repository conversion failed")
-		}
-		var actorOrg models.Organization
-		if err := repoImpl.db.Where("tenant_id = ?", *actorSchoolID).First(&actorOrg).Error; err != nil {
-			return errors.New("actor organization not found")
-		}
-
-		if org.ID != actorOrg.ID && (org.ParentOrgID == nil || *org.ParentOrgID != actorOrg.ID) {
-			return errors.New("access denied: you can only delete child organizations under your scope")
-		}
+	if actorSchoolID == nil {
+		return errors.New("actor organization context required")
 	}
 
-	return s.repo.DeleteOrganization(id)
+	var actorOrg models.Organization
+	if err := repoImpl.db.Where("tenant_id = ?", *actorSchoolID).First(&actorOrg).Error; err != nil {
+		return errors.New("actor organization not found")
+	}
+
+	// Traverse up to see if the deleted org is a descendant of the actor's org
+	isChild := false
+	currParentID := org.ParentOrgID
+	for currParentID != nil {
+		if *currParentID == actorOrg.ID {
+			isChild = true
+			break
+		}
+		var pOrg models.Organization
+		if err := repoImpl.db.Where("id = ?", *currParentID).First(&pOrg).Error; err != nil {
+			break
+		}
+		currParentID = pOrg.ParentOrgID
+	}
+
+	if !isChild {
+		return errors.New("access denied: you can only delete child organizations under your scope")
+	}
+
+	return repoImpl.db.Transaction(func(tx *gorm.DB) error {
+		return deleteOrgRecursive(tx, id)
+	})
 }
 
 // ── Peer Connections (same-level role sharing) ───────────────────────────────

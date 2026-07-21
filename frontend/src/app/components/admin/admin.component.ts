@@ -92,7 +92,7 @@ export class AdminComponent implements OnInit {
   roles = ['SuperAdmin', 'DHE', 'School Admin', 'Teaching staff', 'non-teaching', 'vocational'];
 
   get parentOrganizations(): any[] {
-    return this.schools.filter(o => o.Type?.toLowerCase() !== 'school');
+    return this.schools;
   }
 
   get availableRoles(): string[] {
