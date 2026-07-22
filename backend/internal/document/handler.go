@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"office-file-sharing/backend/internal/admin"
@@ -148,8 +149,11 @@ func (h *Handler) Download(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid document ID"})
 	}
 
-	filePath, err := h.service.GetFilePathForDownload(docID, userID)
+	filePath, isTemp, err := h.service.GetFilePathForDownload(docID, userID, c.RealIP())
 	if err != nil {
+		if err.Error() == "you are not authorized to view or access this closed/archived file" {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": err.Error()})
+		}
 		if err.Error() == "you are not authorized to view or access this document" {
 			return c.JSON(http.StatusForbidden, map[string]string{"error": err.Error()})
 		}
@@ -164,6 +168,10 @@ func (h *Handler) Download(c echo.Context) error {
 	absPath, absErr := filepath.Abs(filePath)
 	if absErr == nil {
 		filePath = absPath
+	}
+
+	if isTemp {
+		defer os.Remove(filePath)
 	}
 
 	return c.File(filePath)
@@ -182,7 +190,7 @@ func (h *Handler) PreviewPDF(c echo.Context) error {
 	}
 
 	log.Printf("[Preview Handler] Calling service GetPreviewPDFPath for doc ID %s, user ID %s", docID, userID)
-	filePath, isTemp, err := h.service.GetPreviewPDFPath(docID, userID)
+	filePath, isTemp, err := h.service.GetPreviewPDFPath(docID, userID, c.RealIP())
 	if err != nil {
 		log.Printf("[Preview Handler] GetPreviewPDFPath failed for doc ID %s: %v", docID, err)
 		if err.Error() == "you are not authorized to view or access this document" {
@@ -511,7 +519,8 @@ func (h *Handler) GetFileDetails(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid file ID"})
 	}
 
-	res, err := h.service.GetFileDetails(fileID, userID)
+	source := c.QueryParam("source")
+	res, err := h.service.GetFileDetails(fileID, userID, source)
 	if err != nil {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": err.Error()})
 	}
@@ -675,6 +684,90 @@ func (h *Handler) ReopenFile(c echo.Context) error {
 	}
 
 	res, err := h.service.ReopenFile(fileID, userID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) ListClosedOrArchivedFiles(c echo.Context) error {
+	authenticatedUserIDStr := c.Get("user_id").(string)
+	userID, _ := uuid.Parse(authenticatedUserIDStr)
+
+	search := c.QueryParam("search")
+	res, err := h.service.ListClosedOrArchivedFiles(userID, search)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) RequestFileAccess(c echo.Context) error {
+	authenticatedUserIDStr := c.Get("user_id").(string)
+	userID, _ := uuid.Parse(authenticatedUserIDStr)
+
+	var req struct {
+		FileID  string `json:"file_id"`
+		Remarks string `json:"remarks"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	}
+
+	fileID, err := uuid.Parse(req.FileID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid file ID"})
+	}
+
+	res, err := h.service.RequestFileAccess(fileID, userID, req.Remarks)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusCreated, res)
+}
+
+func (h *Handler) ListPendingAccessRequests(c echo.Context) error {
+	authenticatedUserIDStr := c.Get("user_id").(string)
+	userID, _ := uuid.Parse(authenticatedUserIDStr)
+
+	res, err := h.service.ListPendingAccessRequests(userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) ApproveOrRejectAccessRequest(c echo.Context) error {
+	authenticatedUserIDStr := c.Get("user_id").(string)
+	userID, _ := uuid.Parse(authenticatedUserIDStr)
+
+	var req struct {
+		ShareID       string      `json:"share_id"`
+		Status        string      `json:"status"` // approved, rejected
+		DurationHours interface{} `json:"duration_hours"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	}
+
+	shareID, err := uuid.Parse(req.ShareID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request ID"})
+	}
+
+	var durationHours int
+	if req.DurationHours != nil {
+		switch val := req.DurationHours.(type) {
+		case float64:
+			durationHours = int(val)
+		case int:
+			durationHours = val
+		case string:
+			durationHours, _ = strconv.Atoi(val)
+		}
+	}
+
+	res, err := h.service.ApproveOrRejectAccessRequest(shareID, userID, req.Status, durationHours)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}

@@ -43,4 +43,10 @@ func RegisterRoutes(g *echo.Group, handler *Handler, jwtSecret []byte) {
 	r.POST("/files/:id/notes", handler.CreateNote)
 	r.PUT("/notes/:id", handler.UpdateNote)
 	r.POST("/notes/:id/publish", handler.PublishNote)
+
+	// Central Repository & Access requests
+	r.GET("/central-repo/files", handler.ListClosedOrArchivedFiles)
+	r.POST("/central-repo/request", handler.RequestFileAccess)
+	r.GET("/central-repo/requests", handler.ListPendingAccessRequests)
+	r.POST("/central-repo/approve", handler.ApproveOrRejectAccessRequest)
 }

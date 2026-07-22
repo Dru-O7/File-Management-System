@@ -1,6 +1,7 @@
 package document
 
 import (
+	"strings"
 	"time"
 
 	"office-file-sharing/backend/internal/shared/models"
@@ -35,6 +36,15 @@ type Repository interface {
 	SaveNote(note *models.Note) error
 	GetNoteByID(id uuid.UUID) (*models.Note, error)
 	GetNotesByFileID(fileID uuid.UUID) ([]models.Note, error)
+
+	// Central Repository & FileShare
+	ListClosedOrArchivedFiles(search string) ([]models.File, error)
+	CreateFileShare(share *models.FileShare) error
+	SaveFileShare(share *models.FileShare) error
+	GetFileShareByID(id uuid.UUID) (*models.FileShare, error)
+	GetFileShare(fileID, userID uuid.UUID) (*models.FileShare, error)
+	GetPendingFileShares() ([]models.FileShare, error)
+	GetPendingFileSharesBySchool(schoolID uuid.UUID) ([]models.FileShare, error)
 }
 
 type repository struct {
@@ -71,7 +81,11 @@ func (r *repository) ListByUser(userID uuid.UUID, search string) ([]models.Docum
 	query := r.db.Preload("Uploader").Preload("CurrentOwner").Preload("Attachments")
 
 	// Apply RBAC filters based on Greenwood High School roles
-	switch user.Role {
+	mappedRole := user.Role
+	if strings.HasPrefix(mappedRole, "Admin ") {
+		mappedRole = "School Admin"
+	}
+	switch mappedRole {
 	case "DHE":
 		// DHE can see everything within the school
 		if user.SchoolID != nil {
@@ -293,4 +307,65 @@ func (r *repository) GetNotesByFileID(fileID uuid.UUID) ([]models.Note, error) {
 	var notes []models.Note
 	err := r.db.Preload("Author").Preload("Author.School").Where("file_id = ? AND is_discarded = false", fileID).Order("created_at asc").Find(&notes).Error
 	return notes, err
+}
+
+func (r *repository) ListClosedOrArchivedFiles(search string) ([]models.File, error) {
+	var files []models.File
+	query := r.db.Preload("Creator").Preload("CurrentOwner").
+		Where("status = ? OR status = ?", models.FileStatusClosed, models.FileStatusArchived).
+		Order("created_at desc")
+
+	if search != "" {
+		query = query.Where("title ILIKE ? OR file_number ILIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+
+	err := query.Find(&files).Error
+	return files, err
+}
+
+func (r *repository) CreateFileShare(share *models.FileShare) error {
+	return r.db.Create(share).Error
+}
+
+func (r *repository) SaveFileShare(share *models.FileShare) error {
+	return r.db.Omit("File", "User", "GrantedBy").Save(share).Error
+}
+
+func (r *repository) GetFileShareByID(id uuid.UUID) (*models.FileShare, error) {
+	var share models.FileShare
+	err := r.db.Preload("File").Preload("User").Preload("GrantedBy").First(&share, "id = ?", id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &share, nil
+}
+
+func (r *repository) GetFileShare(fileID, userID uuid.UUID) (*models.FileShare, error) {
+	var share models.FileShare
+	// Get the latest active share or request
+	err := r.db.Preload("File").Preload("User").Preload("GrantedBy").
+		Where("file_id = ? AND user_id = ?", fileID, userID).
+		Order("created_at desc").First(&share).Error
+	if err != nil {
+		return nil, err
+	}
+	return &share, nil
+}
+
+func (r *repository) GetPendingFileShares() ([]models.FileShare, error) {
+	var shares []models.FileShare
+	err := r.db.Preload("File").Preload("User").
+		Where("status = ?", "pending").
+		Order("created_at asc").Find(&shares).Error
+	return shares, err
+}
+
+func (r *repository) GetPendingFileSharesBySchool(schoolID uuid.UUID) ([]models.FileShare, error) {
+	var shares []models.FileShare
+	// Filter requests where the requesting user belongs to the same school
+	err := r.db.Preload("File").Preload("User").
+		Joins("JOIN users ON users.id = file_shares.user_id").
+		Where("file_shares.status = ? AND users.school_id = ?", "pending", schoolID).
+		Order("file_shares.created_at asc").Find(&shares).Error
+	return shares, err
 }

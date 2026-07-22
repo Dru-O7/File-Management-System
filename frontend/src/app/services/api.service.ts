@@ -123,8 +123,12 @@ export class ApiService {
     return this.http.get<any[]>(url);
   }
 
-  getFileDetails(id: string) {
-    return this.http.get<any>(`${this.apiUrl}/files/${id}`);
+  getFileDetails(id: string, source?: string) {
+    let url = `${this.apiUrl}/files/${id}`;
+    if (source) {
+      url += `?source=${source}`;
+    }
+    return this.http.get<any>(url);
   }
 
   forwardFile(id: string, targetOwnerId: string) {
@@ -255,5 +259,27 @@ export class ApiService {
 
   deleteOrganization(id: string) {
     return this.http.delete<any>(`${this.apiUrl}/admin/organizations/${id}`);
+  }
+
+  // ── Central Repository & Sharing ─────────────────────────────────────────
+
+  getClosedOrArchivedFiles(search?: string) {
+    let url = `${this.apiUrl}/central-repo/files`;
+    if (search) {
+      url += `?search=${encodeURIComponent(search)}`;
+    }
+    return this.http.get<any[]>(url);
+  }
+
+  requestFileAccess(fileId: string, remarks: string) {
+    return this.http.post<any>(`${this.apiUrl}/central-repo/request`, { file_id: fileId, remarks: remarks });
+  }
+
+  getPendingAccessRequests() {
+    return this.http.get<any[]>(`${this.apiUrl}/central-repo/requests`);
+  }
+
+  resolveAccessRequest(shareId: string, status: 'approved' | 'rejected', durationHours: number) {
+    return this.http.post<any>(`${this.apiUrl}/central-repo/approve`, { share_id: shareId, status: status, duration_hours: durationHours });
   }
 }

@@ -137,7 +137,7 @@ export class AdminComponent implements OnInit {
     this.loadDocTypes();
     this.loadFileCategories();
     this.loadFileSubCategories();
-    const hasAdminAccess = !!this.currentUser?.isAdmin || role === 'SuperAdmin' || role === 'Admin' || role === 'DHE' || role === 'School Admin';
+    const hasAdminAccess = !!this.currentUser?.isAdmin || role === 'SuperAdmin' || role === 'Admin' || role === 'DHE' || role === 'School Admin' || (role && role.startsWith('Admin '));
     if (hasAdminAccess) {
       this.loadSchools();
       this.loadRoles();
@@ -168,7 +168,7 @@ export class AdminComponent implements OnInit {
     if (path.endsWith('/users')) {
       this.activeSection = 'users';
     } else if (path.endsWith('/schools')) {
-      const hasAdminAccess = !!this.currentUser?.isAdmin || role === 'SuperAdmin' || role === 'Admin' || role === 'DHE' || role === 'School Admin';
+      const hasAdminAccess = !!this.currentUser?.isAdmin || role === 'SuperAdmin' || role === 'Admin' || role === 'DHE' || role === 'School Admin' || (role && role.startsWith('Admin '));
       if (hasAdminAccess) {
         this.activeSection = 'schools';
       } else {
@@ -178,7 +178,7 @@ export class AdminComponent implements OnInit {
     } else if (path.endsWith('/doctypes')) {
       this.activeSection = 'doctypes';
     } else if (path.endsWith('/roles')) {
-      const hasAdminAccess = !!this.currentUser?.isAdmin || role === 'SuperAdmin' || role === 'Admin' || role === 'DHE' || role === 'School Admin';
+      const hasAdminAccess = !!this.currentUser?.isAdmin || role === 'SuperAdmin' || role === 'Admin' || role === 'DHE' || role === 'School Admin' || (role && role.startsWith('Admin '));
       if (hasAdminAccess) {
         this.activeSection = 'roles';
       } else {

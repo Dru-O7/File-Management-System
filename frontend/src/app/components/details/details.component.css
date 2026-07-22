@@ -148,3 +148,13 @@ textarea { resize: vertical; min-height: 80px; }
 }
 
 .btn-secondary:hover { background: #f1f5f9; }
+
+.screen-watermark {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background-repeat: repeat;
+  opacity: 0.45;
+  transition: opacity 0.3s;
+}
