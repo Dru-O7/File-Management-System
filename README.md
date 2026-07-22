@@ -88,12 +88,14 @@ export DATABASE_URL="host=localhost user=your_user password=your_password dbname
      ```
    The gateway will be available at `http://localhost:8080`.
 
-### Database Seeding / Reset
-If you need to reset and populate the database with the pre-seeded mock accounts, navigate to the `backend` folder and run the seeding command:
+### Database Reset & Seeding
+If you need to reset the database and seed the default SuperAdmin credentials, navigate to the `backend` folder and run:
 ```bash
 go run cmd/seed/main.go
 ```
-This will clear the users database and seed the mock credentials.
+This will clear all tables (except the SuperAdmin user) and seed the default administrator credentials:
+- **Email**: `superadmin@school.edu`
+- **Password**: `password`
 
 ### Running Tests
 To run backend unit tests:
@@ -128,35 +130,6 @@ The Angular frontend provides dashboard controls for document actions, tracking 
    ```
 2. Open your browser and navigate to [http://localhost:4200](http://localhost:4200).
 
----
-
-## 4. Test Accounts
-
-The database is pre-seeded with mock users. You can log in on the login screen by entering one of these email addresses along with the default password **`password`**:
-
-### System Level / DHE (No School)
-- **System Administrator**: `admin@school.edu` (Role: DHE Admin)
-
-### Delhi Public School
-- **Gaurav Verma**: `gaurav@school.edu` (Role: School Admin)
-- **Neha Reddy**: `neha@school.edu` (Role: Teaching Staff - Department B, History)
-
-### Greenwood High School
-- **Rahul Gupta**: `rahul@school.edu` (Role: School Admin)
-- **Priya Patel**: `priya@school.edu` (Role: Teaching Staff - Department A, Science)
-- **Deepak Singh**: `deepak@school.edu` (Role: Non-teaching)
-
-### Modern School
-- **Shalini Sen**: `shalini@school.edu` (Role: School Admin)
-- **Vikram Iyer**: `vikram@school.edu` (Role: Teaching Staff - Department C, Mathematics)
-- **Meera Menon**: `meera@school.edu` (Role: Teaching Staff - Department D, English)
-- **Aarav Sharma**: `aarav@school.edu` (Role: Vocational - Department A)
-- **Ananya Iyer**: `ananya@school.edu` (Role: Vocational - Department B)
-- **Rohan Das**: `rohan@school.edu` (Role: Vocational - Department C)
-- **Kavya Menon**: `kavya@school.edu` (Role: Vocational - Department D)
-
----
-
 ## Key Features Implemented
 
 1. **Receipts (Inward Documents) & Files (Noting Sheets)**:
@@ -177,9 +150,8 @@ The database is pre-seeded with mock users. You can log in on the login screen b
    - Embeds a client-side DOCX document viewer using the `docx-preview` library.
 8. **Action Stamp Tokens**: Generates and overlays a secure, verifiable transaction token (e.g. `SIG-TX-XXXX`) automatically when an action (Approve/Reject) is completed.
 9. **Separate Admin Panel**: A centralized, secure console for school administrators allowing:
-   - System stats oversight (users, documents, SLA metrics).
+   - System stats oversight (users, documents).
    - CRUD management for users and class settings.
    - CRUD management for document categories and workflow rules.
    - School settings adjustments.
-10. **Forwarded Inbox Sections**: Segregates active received inbox documents from previously acted-upon/forwarded items for better workflow visibility.
 
