@@ -355,6 +355,18 @@
         >
           My Receipts ({{ getTabCount("my_receipts") }})
         </button>
+        <button
+          class="px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer bg-transparent border-0"
+          [ngClass]="{
+            'border-[var(--primary)] text-[var(--primary)]':
+              activeTab === 'forwarded',
+            'border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]':
+              activeTab !== 'forwarded',
+          }"
+          (click)="selectTab('forwarded')"
+        >
+          Forwarded Receipts ({{ getTabCount("forwarded") }})
+        </button>
       </ng-container>
 
       <!-- Files Mode Specific Tabs -->
@@ -383,6 +395,18 @@
         >
           My Files ({{ getTabCount("my_files") }})
         </button>
+        <button
+          class="px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer bg-transparent border-0"
+          [ngClass]="{
+            'border-[var(--primary)] text-[var(--primary)]':
+              activeTab === 'forwarded',
+            'border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]':
+              activeTab !== 'forwarded',
+          }"
+          (click)="selectTab('forwarded')"
+        >
+          Forwarded Files ({{ getTabCount("forwarded") }})
+        </button>
       </ng-container>
     </div>
   </div>
@@ -403,11 +427,13 @@
                   ? "My Receipts"
                   : activeTab === "received"
                     ? "Received"
-                    : activeTab === "pending_me"
-                      ? "Pending Me"
-                      : activeTab === "sent_by_me"
-                        ? "Sent by Me"
-                        : activeTab
+                    : activeTab === "forwarded"
+                      ? "Forwarded"
+                      : activeTab === "pending_me"
+                        ? "Pending Me"
+                        : activeTab === "sent_by_me"
+                          ? "Sent by Me"
+                          : activeTab
           }}</span
         >
       </h3>

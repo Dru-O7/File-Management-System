@@ -200,6 +200,8 @@ export class DashboardComponent implements OnInit {
           list = list.filter(doc => (doc.CurrentOwnerID || '').toLowerCase() === currentUserIdLower && doc.Status !== 'Approved' && doc.Status !== 'Rejected' && doc.Status !== 'Closed' && doc.Status !== 'Archived');
         } else if (this.activeTab === 'my_receipts') {
           list = list.filter(doc => (doc.UploaderID || '').toLowerCase() === currentUserIdLower);
+        } else if (this.activeTab === 'forwarded') {
+          list = list.filter(doc => (doc.CurrentOwnerID || '').toLowerCase() !== currentUserIdLower && (doc.UploaderID || '').toLowerCase() !== currentUserIdLower);
         }
       }
 
@@ -220,6 +222,8 @@ export class DashboardComponent implements OnInit {
           list = list.filter(file => (file.CurrentOwnerID || '').toLowerCase() === currentUserIdLower && (file.CreatorID || '').toLowerCase() !== currentUserIdLower);
         } else if (this.activeTab === 'my_files') {
           list = list.filter(file => (file.CreatorID || '').toLowerCase() === currentUserIdLower);
+        } else if (this.activeTab === 'forwarded') {
+          list = list.filter(file => (file.CurrentOwnerID || '').toLowerCase() !== currentUserIdLower && (file.CreatorID || '').toLowerCase() !== currentUserIdLower);
         }
       }
 
@@ -250,6 +254,8 @@ export class DashboardComponent implements OnInit {
         list = list.filter(doc => (doc.CurrentOwnerID || '').toLowerCase() === currentUserIdLower && doc.Status !== 'Approved' && doc.Status !== 'Rejected' && doc.Status !== 'Closed' && doc.Status !== 'Archived');
       } else if (tab === 'my_receipts') {
         list = list.filter(doc => (doc.UploaderID || '').toLowerCase() === currentUserIdLower);
+      } else if (tab === 'forwarded') {
+        list = list.filter(doc => (doc.CurrentOwnerID || '').toLowerCase() !== currentUserIdLower && (doc.UploaderID || '').toLowerCase() !== currentUserIdLower);
       } else {
         return 0;
       }
@@ -264,6 +270,8 @@ export class DashboardComponent implements OnInit {
         list = list.filter(file => (file.CurrentOwnerID || '').toLowerCase() === currentUserIdLower && (file.CreatorID || '').toLowerCase() !== currentUserIdLower);
       } else if (tab === 'my_files') {
         list = list.filter(file => (file.CreatorID || '').toLowerCase() === currentUserIdLower);
+      } else if (tab === 'forwarded') {
+        list = list.filter(file => (file.CurrentOwnerID || '').toLowerCase() !== currentUserIdLower && (file.CreatorID || '').toLowerCase() !== currentUserIdLower);
       } else {
         return 0;
       }

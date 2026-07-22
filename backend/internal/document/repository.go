@@ -258,10 +258,10 @@ func (r *repository) ListFilesByUser(userID uuid.UUID, search string) ([]models.
 	query := r.db.Preload("Creator").Preload("CurrentOwner").
 		Order("created_at desc")
 
-	// Filter: only show files created by the user, OR currently owned by the user, OR where they have written a Note
+	// Filter: only show files created by the user, OR currently owned by the user, OR where they have written a Note, OR where they are in workflow history
 	query = query.Where(
-		"creator_id = ? OR current_owner_id = ? OR id IN (SELECT file_id FROM notes WHERE author_id = ?)",
-		userID, userID, userID,
+		"creator_id = ? OR current_owner_id = ? OR id IN (SELECT file_id FROM notes WHERE author_id = ?) OR id IN (SELECT file_id FROM workflow_histories WHERE actor_id = ?)",
+		userID, userID, userID, userID,
 	)
 
 	if search != "" {
