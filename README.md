@@ -88,12 +88,14 @@ export DATABASE_URL="host=localhost user=your_user password=your_password dbname
      ```
    The gateway will be available at `http://localhost:8080`.
 
-### Database Seeding / Reset
-If you need to reset and populate the database with the pre-seeded mock accounts, navigate to the `backend` folder and run the seeding command:
+### Database Reset & Seeding
+If you need to reset the database and seed the default SuperAdmin credentials, navigate to the `backend` folder and run:
 ```bash
 go run cmd/seed/main.go
 ```
-This will clear the users database and seed the mock credentials.
+This will clear all tables (except the SuperAdmin user) and seed the default administrator credentials:
+- **Email**: `superadmin@school.edu`
+- **Password**: `password`
 
 ### Running Tests
 To run backend unit tests:
@@ -128,48 +130,27 @@ The Angular frontend provides dashboard controls for document actions, tracking 
    ```
 2. Open your browser and navigate to [http://localhost:4200](http://localhost:4200).
 
----
-
-## 4. Test Accounts
-
-The database is pre-seeded with mock users. You can log in on the login screen by entering one of these email addresses along with the default password **`password`**:
-
-### System Level / DHE (No School)
-- **System Administrator**: `admin@school.edu` (Role: DHE Admin)
-
-### Delhi Public School
-- **Gaurav Verma**: `gaurav@school.edu` (Role: School Admin)
-- **Neha Reddy**: `neha@school.edu` (Role: Teaching Staff - Department B, History)
-
-### Greenwood High School
-- **Rahul Gupta**: `rahul@school.edu` (Role: School Admin)
-- **Priya Patel**: `priya@school.edu` (Role: Teaching Staff - Department A, Science)
-- **Deepak Singh**: `deepak@school.edu` (Role: Non-teaching)
-
-### Modern School
-- **Shalini Sen**: `shalini@school.edu` (Role: School Admin)
-- **Vikram Iyer**: `vikram@school.edu` (Role: Teaching Staff - Department C, Mathematics)
-- **Meera Menon**: `meera@school.edu` (Role: Teaching Staff - Department D, English)
-- **Aarav Sharma**: `aarav@school.edu` (Role: Vocational - Department A)
-- **Ananya Iyer**: `ananya@school.edu` (Role: Vocational - Department B)
-- **Rohan Das**: `rohan@school.edu` (Role: Vocational - Department C)
-- **Kavya Menon**: `kavya@school.edu` (Role: Vocational - Department D)
-
----
-
 ## Key Features Implemented
 
-1. **Document Actions**: Approve, Reject, and Send Back for Revision.
-2. **Resubmit or Replace**:
+1. **Receipts (Inward Documents) & Files (Noting Sheets)**:
+   - Dual-mode workflow workspace supporting standard inward receipts and official file noting sheets.
+2. **Noting Sheet Collaboration (Green & Yellow Notes)**:
+   - **Yellow Notes (Drafts)**: Collaborative, editable draft notes that can be edited by the author or finalized.
+   - **Green Notes (Official)**: Permanent, un-editable official notes stamped with electronic signatures.
+3. **Point of Contact (PoC) Sibling & Parent Routing**:
+   - Administrative point-of-contacts can forward files up to parent organizations or across to sibling organizations.
+   - Role-based boundaries restrict standard staff visibility to their own organization while admins serve as gateway points of contact.
+4. **Document Actions**: Approve, Reject, and Send Back for Revision.
+5. **Resubmit or Replace**:
    - Uploaders can replace a document that was sent back.
    - Alternatively, they can **resubmit with comments** without modifying the original file.
-3. **Workflow Timeline**: Complete action tracking shown chronologically on a vertical history timeline.
-4. **Document Previews (PDF & DOCX)**: 
+6. **Workflow Timeline**: Complete action tracking shown chronologically on a vertical history timeline.
+7. **Document Previews (PDF & DOCX)**: 
    - Embeds an inline browser-native PDF viewer dynamically using `DomSanitizer` inside the document details page.
    - Embeds a client-side DOCX document viewer using the `docx-preview` library.
-5. **Action Stamp Tokens**: Generates and overlays a secure, verifiable transaction token (e.g. `SIG-TX-XXXX`) automatically when an action (Approve/Reject) is completed.
-6. **Separate Admin Dashboard (`/admin`)**: A centralized, secure console for school administrators allowing:
-   - System stats oversight (users, documents, SLA metrics).
+8. **Action Stamp Tokens**: Generates and overlays a secure, verifiable transaction token (e.g. `SIG-TX-XXXX`) automatically when an action (Approve/Reject) is completed.
+9. **Separate Admin Panel**: A centralized, secure console for school administrators allowing:
+   - System stats oversight (users, documents).
    - CRUD management for users and class settings.
    - CRUD management for document categories and workflow rules.
    - School settings adjustments.
