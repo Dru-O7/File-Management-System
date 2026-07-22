@@ -122,6 +122,7 @@
           </div>
 
           <button
+            *ngIf="source !== 'repo'"
             class="app-btn-secondary w-full sm:w-auto font-semibold"
             (click)="download()"
           >
@@ -887,7 +888,7 @@
                 >
               </div>
               <a
-                *ngIf="selectedReceipt.FilePath"
+                *ngIf="selectedReceipt.FilePath && source !== 'repo'"
                 [href]="
                   'http://localhost:8080/api/documents/' +
                   selectedReceipt.ID +
@@ -1424,4 +1425,11 @@
       </div>
     </div>
   </ng-container>
+
+  <!-- Fullscreen Screen Watermark Overlay for Closed/Archived Files -->
+  <div 
+    *ngIf="isFileType && file && (file.Status === 'Closed' || file.Status === 'Archived') && source === 'repo'"
+    class="screen-watermark" 
+    [style.background-image]="watermarkSvgDataUri"
+  ></div>
 </div>

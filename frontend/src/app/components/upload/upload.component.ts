@@ -81,7 +81,7 @@ export class UploadComponent implements OnInit {
         const currentId = currentUser?.ID || currentUser?.id;
         const currentRole = currentUser?.Role || currentUser?.role;
         const currentSchoolId = currentUser?.SchoolID || currentUser?.school_id;
-        const canSeeAll = currentUser?.isAdmin || currentRole === 'School Admin' || currentRole === 'SuperAdmin' || currentRole === 'Admin' || currentRole === 'DHE';
+        const canSeeAll = currentUser?.isAdmin || currentRole === 'School Admin' || currentRole === 'SuperAdmin' || currentRole === 'Admin' || currentRole === 'DHE' || (currentRole && currentRole.startsWith('Admin '));
         
         this.users = res.filter(u => {
           if ((u.id || u.ID) === currentId) return false;

@@ -39,8 +39,8 @@ type Service interface {
 	List(userID uuid.UUID, search string) ([]DocumentResponse, error)
 	GetSubmissions(docID, authenticatedUserID uuid.UUID) ([]DocumentResponse, error)
 	GetDetails(docID, authenticatedUserID uuid.UUID) (*DocumentDetailsResponse, error)
-	GetFilePathForDownload(docID, authenticatedUserID uuid.UUID) (string, error)
-	GetPreviewPDFPath(docID, authenticatedUserID uuid.UUID) (string, bool, error)
+	GetFilePathForDownload(docID, authenticatedUserID uuid.UUID, clientIP string) (string, bool, error)
+	GetPreviewPDFPath(docID, authenticatedUserID uuid.UUID, clientIP string) (string, bool, error)
 	Replace(docID, authenticatedUserID, targetOwnerID uuid.UUID, title, description, category, tags, priority, direction string, fileHeader *multipart.FileHeader, remarks string) (*DocumentResponse, error)
 	TakeAction(docID, authenticatedUserID uuid.UUID, req ActionRequest) (*DocumentResponse, error)
 	Recall(docID, authenticatedUserID uuid.UUID) (*DocumentResponse, error)
@@ -53,7 +53,7 @@ type Service interface {
 	GetMyHistory(userID uuid.UUID) ([]UserHistoryEntry, error)
 	CreateFile(creatorID uuid.UUID, title, description, category, subCategory, priority string) (*FileResponse, error)
 	ListFiles(userID uuid.UUID, search string) ([]FileResponse, error)
-	GetFileDetails(fileID, authenticatedUserID uuid.UUID) (*FileDetailsResponse, error)
+	GetFileDetails(fileID, authenticatedUserID uuid.UUID, source string) (*FileDetailsResponse, error)
 	ForwardFile(fileID, authenticatedUserID uuid.UUID, req ForwardFileRequest) (*FileResponse, error)
 	AttachReceipt(fileID, authenticatedUserID uuid.UUID, receiptID uuid.UUID) (*FileResponse, error)
 	CreateNote(fileID, authenticatedUserID uuid.UUID, req CreateNoteRequest) (*NoteResponse, error)
@@ -62,6 +62,13 @@ type Service interface {
 	CloseFile(fileID, authenticatedUserID uuid.UUID) (*FileResponse, error)
 	ArchiveFile(fileID, authenticatedUserID uuid.UUID) (*FileResponse, error)
 	ReopenFile(fileID, authenticatedUserID uuid.UUID) (*FileResponse, error)
+
+	// Central Repository & File Access Sharing
+	ListClosedOrArchivedFiles(authenticatedUserID uuid.UUID, search string) ([]FileResponse, error)
+	RequestFileAccess(fileID, authenticatedUserID uuid.UUID, remarks string) (*FileShareResponse, error)
+	ListPendingAccessRequests(authenticatedUserID uuid.UUID) ([]FileShareResponse, error)
+	ApproveOrRejectAccessRequest(shareID, authenticatedUserID uuid.UUID, status string, durationHours int) (*FileShareResponse, error)
+	CheckFileAccess(fileID, userID uuid.UUID) (bool, error)
 }
 
 type service struct {
@@ -363,20 +370,55 @@ func (s *service) GetSubmissions(docID, authenticatedUserID uuid.UUID) ([]Docume
 	return responses, nil
 }
 
-func (s *service) GetFilePathForDownload(docID, authenticatedUserID uuid.UUID) (string, error) {
+func (s *service) GetFilePathForDownload(docID, authenticatedUserID uuid.UUID, clientIP string) (string, bool, error) {
 	doc, err := s.repo.GetByID(docID)
 	if err != nil {
-		return "", errors.New("document not found")
+		return "", false, errors.New("document not found")
 	}
 
-	if err := s.authorizeDocAccess(doc, authenticatedUserID); err != nil {
-		return "", err
+	// Check if this document belongs to a closed or archived file
+	isClosedOrArchived := false
+	if doc.FileID != nil {
+		var f models.File
+		if err := s.repo.(*repository).db.First(&f, "id = ?", *doc.FileID).Error; err == nil {
+			if f.Status == models.FileStatusClosed || f.Status == models.FileStatusArchived {
+				isClosedOrArchived = true
+				// Enforce sharing permission check
+				hasAccess, _ := s.CheckFileAccess(*doc.FileID, authenticatedUserID)
+				if !hasAccess {
+					return "", false, errors.New("you are not authorized to view or access this closed/archived file")
+				}
+			}
+		}
 	}
 
-	return doc.FilePath, nil
+	// Fallback to normal doc access if not closed or archived
+	if !isClosedOrArchived {
+		if err := s.authorizeDocAccess(doc, authenticatedUserID); err != nil {
+			return "", false, err
+		}
+	}
+
+	if isClosedOrArchived {
+		// Log access audit trail
+		history := &models.WorkflowHistory{
+			ID:        uuid.New(),
+			SchoolID:  doc.SchoolID,
+			FileID:    doc.FileID,
+			ActorID:   authenticatedUserID,
+			Action:    "Approved",
+			Remarks:   "Downloaded file from Central Repository. IP: " + clientIP,
+			Stage:     1,
+			Version:   1,
+			EventType: "file_access",
+		}
+		_ = s.repo.CreateHistory(history)
+	}
+
+	return doc.FilePath, false, nil
 }
 
-func (s *service) GetPreviewPDFPath(docID, authenticatedUserID uuid.UUID) (string, bool, error) {
+func (s *service) GetPreviewPDFPath(docID, authenticatedUserID uuid.UUID, clientIP string) (string, bool, error) {
 	log.Printf("[Preview Service] Fetching document %s for user %s", docID, authenticatedUserID)
 	doc, err := s.repo.GetByID(docID)
 	if err != nil {
@@ -384,9 +426,28 @@ func (s *service) GetPreviewPDFPath(docID, authenticatedUserID uuid.UUID) (strin
 		return "", false, errors.New("document not found")
 	}
 
-	if err := s.authorizeDocAccess(doc, authenticatedUserID); err != nil {
-		log.Printf("[Preview Service] User %s unauthorized for document %s", authenticatedUserID, docID)
-		return "", false, err
+	// Check if this document belongs to a closed or archived file
+	isClosedOrArchived := false
+	if doc.FileID != nil {
+		var f models.File
+		if err := s.repo.(*repository).db.First(&f, "id = ?", *doc.FileID).Error; err == nil {
+			if f.Status == models.FileStatusClosed || f.Status == models.FileStatusArchived {
+				isClosedOrArchived = true
+				hasAccess, _ := s.CheckFileAccess(*doc.FileID, authenticatedUserID)
+				if !hasAccess {
+					log.Printf("[Preview Service] User %s unauthorized for closed/archived document %s", authenticatedUserID, docID)
+					return "", false, errors.New("you are not authorized to view or access this closed/archived file")
+				}
+			}
+		}
+	}
+
+	// Fallback to normal doc access if not closed or archived
+	if !isClosedOrArchived {
+		if err := s.authorizeDocAccess(doc, authenticatedUserID); err != nil {
+			log.Printf("[Preview Service] User %s unauthorized for document %s", authenticatedUserID, docID)
+			return "", false, err
+		}
 	}
 
 	ext := strings.ToLower(filepath.Ext(doc.FilePath))
@@ -459,6 +520,8 @@ func (s *service) GetPreviewPDFPath(docID, authenticatedUserID uuid.UUID) (strin
 			}
 		}
 	}
+
+
 
 	log.Printf("[Preview Service] Conversion and signature stamping succeeded, returning temp PDF path: %s", generatedPdfPath)
 	return generatedPdfPath, true, nil
@@ -1863,7 +1926,7 @@ func (s *service) ListFiles(userID uuid.UUID, search string) ([]FileResponse, er
 	return responses, nil
 }
 
-func (s *service) GetFileDetails(fileID, authenticatedUserID uuid.UUID) (*FileDetailsResponse, error) {
+func (s *service) GetFileDetails(fileID, authenticatedUserID uuid.UUID, source string) (*FileDetailsResponse, error) {
 	file, err := s.repo.GetFileByID(fileID)
 	if err != nil {
 		return nil, errors.New("file not found")
@@ -1883,12 +1946,38 @@ func (s *service) GetFileDetails(fileID, authenticatedUserID uuid.UUID) (*FileDe
 	s.repo.(*repository).db.Model(&models.Note{}).Where("file_id = ? AND author_id = ?", fileID, authenticatedUserID).Count(&noteCount)
 
 	hasAccess := isCurrentOwner || isDHE || isCreator || isSameSchool || noteCount > 0
+	if !hasAccess && (file.Status == models.FileStatusClosed || file.Status == models.FileStatusArchived) {
+		hasAccess, _ = s.CheckFileAccess(fileID, authenticatedUserID)
+	}
 
 	if !hasAccess {
 		return nil, errors.New("you are not authorized to view this file")
 	}
 
+	// Create a Viewed audit history record for Central Repository accesses
+	if source == "repo" && (file.Status == models.FileStatusClosed || file.Status == models.FileStatusArchived) {
+		history := &models.WorkflowHistory{
+			ID:        uuid.New(),
+			SchoolID:  file.SchoolID,
+			FileID:    &file.ID,
+			ActorID:   authenticatedUserID,
+			Action:    "Viewed",
+			Remarks:   "Viewed file from Central Repository.",
+			Stage:     1,
+			Version:   1,
+			EventType: "file_access",
+		}
+		_ = s.repo.CreateHistory(history)
+	}
+
 	isWorkflowOnly := !isCurrentOwner && !isDHE
+	if file.Status == models.FileStatusClosed || file.Status == models.FileStatusArchived {
+		if source == "repo" {
+			isWorkflowOnly = false
+		} else {
+			isWorkflowOnly = true
+		}
+	}
 
 	var noteResponses []NoteResponse
 	if !isWorkflowOnly {
@@ -2309,4 +2398,466 @@ func (s *service) ReopenFile(fileID, authenticatedUserID uuid.UUID) (*FileRespon
 	_ = s.repo.CreateHistory(history)
 
 	return s.toFileResponse(file), nil
+}
+
+func (s *service) ListClosedOrArchivedFiles(authenticatedUserID uuid.UUID, search string) ([]FileResponse, error) {
+	files, err := s.repo.ListClosedOrArchivedFiles(search)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]FileResponse, len(files))
+	for i, f := range files {
+		hasAccess, _ := s.CheckFileAccess(f.ID, authenticatedUserID)
+		res := s.toFileResponse(&f)
+		res.HasAccess = hasAccess
+		responses[i] = *res
+	}
+	return responses, nil
+}
+
+func (s *service) RequestFileAccess(fileID, authenticatedUserID uuid.UUID, remarks string) (*FileShareResponse, error) {
+	file, err := s.repo.GetFileByID(fileID)
+	if err != nil {
+		return nil, errors.New("file not found")
+	}
+
+	// Check if request already exists
+	existing, err := s.repo.GetFileShare(fileID, authenticatedUserID)
+	if err == nil && existing.Status == "pending" {
+		return nil, errors.New("a pending access request already exists for this file")
+	}
+
+	// Resolve hierarchy-based routing
+	var requester models.User
+	_ = s.repo.(*repository).db.First(&requester, "id = ?", authenticatedUserID)
+	
+	var requesterOrgID *uuid.UUID
+	if requester.SchoolID != nil {
+		if rOrg, err := s.GetOrgForSchool(*requester.SchoolID); err == nil {
+			requesterOrgID = &rOrg.ID
+		}
+	}
+
+	var creatorOrgID *uuid.UUID
+	if file.SchoolID != nil {
+		if cOrg, err := s.GetOrgForSchool(*file.SchoolID); err == nil {
+			creatorOrgID = &cOrg.ID
+		}
+	}
+
+	var targetOrgID *uuid.UUID
+	var closeEvent models.WorkflowHistory
+
+	// Case 1: Check if closed/archived by a higher authority
+	if err := s.repo.(*repository).db.Preload("Actor").
+		Where("file_id = ? AND action IN (?)", fileID, []string{"Closed", "Archived"}).
+		Order("created_at desc").First(&closeEvent).Error; err == nil {
+		if closeEvent.Actor.SchoolID != nil && (file.SchoolID == nil || *closeEvent.Actor.SchoolID != *file.SchoolID) {
+			if closerOrg, err := s.GetOrgForSchool(*closeEvent.Actor.SchoolID); err == nil {
+				if creatorOrgID != nil {
+					ancestors, _ := s.GetOrgAncestors(*creatorOrgID)
+					isAncestor := false
+					for _, ancID := range ancestors {
+						if ancID == closerOrg.ID {
+							isAncestor = true
+							break
+						}
+					}
+					if isAncestor {
+						targetOrgID = &closerOrg.ID
+					}
+				}
+			}
+		}
+	}
+
+	// Case 2 & 3: Fall back to same organization or common parent org
+	if targetOrgID == nil {
+		if requesterOrgID != nil && creatorOrgID != nil {
+			if *requesterOrgID == *creatorOrgID {
+				targetOrgID = creatorOrgID
+			} else {
+				commonParent, _ := s.FindCommonParentOrg(*requesterOrgID, *creatorOrgID)
+				targetOrgID = commonParent
+			}
+		} else if creatorOrgID != nil {
+			targetOrgID = creatorOrgID
+		}
+	}
+
+	share := &models.FileShare{
+		ID:          uuid.New(),
+		FileID:      fileID,
+		UserID:      authenticatedUserID,
+		Status:      "pending",
+		Remarks:     remarks,
+		TargetOrgID: targetOrgID,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	if err := s.repo.CreateFileShare(share); err != nil {
+		return nil, err
+	}
+
+	// Log audit trail
+	history := &models.WorkflowHistory{
+		ID:        uuid.New(),
+		SchoolID:  file.SchoolID,
+		FileID:    &fileID,
+		ActorID:   authenticatedUserID,
+		Action:    "Submitted", // Audited as access requested
+		Remarks:   "Requested closed/archived file access. Reason: " + remarks,
+		Stage:     1,
+		Version:   1,
+		EventType: "access_request",
+	}
+	_ = s.repo.CreateHistory(history)
+
+	return s.toFileShareResponse(share), nil
+}
+
+func (s *service) ListPendingAccessRequests(authenticatedUserID uuid.UUID) ([]FileShareResponse, error) {
+	var user models.User
+	if err := s.repo.(*repository).db.First(&user, "id = ?", authenticatedUserID).Error; err != nil {
+		return nil, err
+	}
+
+	var shares []models.FileShare
+	var err error
+	if user.Role == "SuperAdmin" {
+		shares, err = s.repo.GetPendingFileShares()
+	} else {
+		// Find organizations where this user is POC or school tenant admin
+		var orgs []models.Organization
+		s.repo.(*repository).db.Where("point_of_contact_id = ? OR tenant_id = ?", user.ID, user.SchoolID).Find(&orgs)
+		
+		var orgIDs []uuid.UUID
+		for _, o := range orgs {
+			orgIDs = append(orgIDs, o.ID)
+		}
+
+		if len(orgIDs) > 0 {
+			err = s.repo.(*repository).db.Preload("File").Preload("User").Preload("GrantedBy").
+				Where("status = ? AND target_org_id IN (?)", "pending", orgIDs).Find(&shares).Error
+		} else if user.SchoolID != nil {
+			shares, err = s.repo.GetPendingFileSharesBySchool(*user.SchoolID)
+		} else {
+			shares = []models.FileShare{}
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]FileShareResponse, len(shares))
+	for i, sh := range shares {
+		responses[i] = *s.toFileShareResponse(&sh)
+	}
+	return responses, nil
+}
+
+func (s *service) ApproveOrRejectAccessRequest(shareID, authenticatedUserID uuid.UUID, status string, durationHours int) (*FileShareResponse, error) {
+	share, err := s.repo.GetFileShareByID(shareID)
+	if err != nil {
+		return nil, errors.New("request not found")
+	}
+
+	if share.Status != "pending" {
+		return nil, errors.New("this request has already been acted upon")
+	}
+
+	// Verify actor authority
+	var actor models.User
+	if err := s.repo.(*repository).db.First(&actor, "id = ?", authenticatedUserID).Error; err != nil {
+		return nil, err
+	}
+
+	isActorAuthority := actor.Role == "SuperAdmin" || actor.Role == "Admin" || actor.Role == "School Admin" || actor.Role == "Principal" || actor.Role == "DHE" || strings.HasPrefix(actor.Role, "Admin ")
+	if !isActorAuthority {
+		return nil, errors.New("only higher authorities can approve access requests")
+	}
+
+	if actor.Role != "SuperAdmin" {
+		if share.TargetOrgID != nil {
+			var count int64
+			s.repo.(*repository).db.Model(&models.Organization{}).
+				Where("id = ? AND (point_of_contact_id = ? OR tenant_id = ?)", *share.TargetOrgID, actor.ID, actor.SchoolID).
+				Count(&count)
+			if count == 0 {
+				return nil, errors.New("you are not authorized to approve requests for this target organization")
+			}
+		} else {
+			var file models.File
+			if err := s.repo.(*repository).db.First(&file, "id = ?", share.FileID).Error; err == nil {
+				if file.SchoolID != nil && actor.SchoolID != nil && *file.SchoolID != *actor.SchoolID {
+					return nil, errors.New("you are not authorized to approve requests for this school")
+				}
+			}
+		}
+	}
+
+	share.Status = status
+	share.GrantedByID = &authenticatedUserID
+	share.UpdatedAt = time.Now()
+
+	if status == "approved" {
+		expireTime := time.Now().Add(time.Duration(durationHours) * time.Hour)
+		share.ExpiresAt = &expireTime
+	}
+
+	if err := s.repo.SaveFileShare(share); err != nil {
+		return nil, err
+	}
+
+	// Log audit trail
+	actionLabel := models.WorkflowAction("Approved")
+	if status == "rejected" {
+		actionLabel = "Rejected"
+	}
+	history := &models.WorkflowHistory{
+		ID:        uuid.New(),
+		SchoolID:  share.File.SchoolID,
+		FileID:    &share.FileID,
+		ActorID:   authenticatedUserID,
+		TargetID:  &share.UserID,
+		Action:    actionLabel,
+		Remarks:   fmt.Sprintf("Access request resolved as %s for %d hours", status, durationHours),
+		Stage:     1,
+		Version:   1,
+		EventType: "access_resolution",
+	}
+	_ = s.repo.CreateHistory(history)
+
+	return s.toFileShareResponse(share), nil
+}
+
+func (s *service) CheckFileAccess(fileID, userID uuid.UUID) (bool, error) {
+	file, err := s.repo.GetFileByID(fileID)
+	if err != nil {
+		return false, err
+	}
+
+	var user models.User
+	if err := s.repo.(*repository).db.First(&user, "id = ?", userID).Error; err != nil {
+		return false, err
+	}
+
+	// SuperAdmin and Admin have full access
+	if user.Role == "SuperAdmin" || user.Role == "Admin" {
+		return true, nil
+	}
+	// School Admin or principal of the same school can see closed/archived files directly
+	isSchoolAdmin := user.Role == "School Admin" || user.Role == "Principal" || strings.HasPrefix(user.Role, "Admin ")
+	if isSchoolAdmin && file.SchoolID != nil && user.SchoolID != nil && *file.SchoolID == *user.SchoolID {
+		return true, nil
+	}
+
+	// Creator or current owner has access
+	if file.CreatorID == userID || file.CurrentOwnerID == userID {
+		return true, nil
+	}
+
+	// Check if user has active/valid share permission
+	share, err := s.repo.GetFileShare(fileID, userID)
+	if err == nil && share.Status == "approved" {
+		if share.ExpiresAt == nil || share.ExpiresAt.After(time.Now()) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (s *service) toFileShareResponse(sh *models.FileShare) *FileShareResponse {
+	var fileTitle, fileNumber, requesterName, granterName string
+	
+	if sh.File.Title != "" {
+		fileTitle = sh.File.Title
+		fileNumber = sh.File.FileNumber
+	} else {
+		var f models.File
+		if err := s.repo.(*repository).db.First(&f, "id = ?", sh.FileID).Error; err == nil {
+			fileTitle = f.Title
+			fileNumber = f.FileNumber
+		}
+	}
+
+	if sh.User.Name != "" {
+		requesterName = sh.User.Name
+	} else {
+		var u models.User
+		if err := s.repo.(*repository).db.First(&u, "id = ?", sh.UserID).Error; err == nil {
+			requesterName = u.Name
+		}
+	}
+
+	if sh.GrantedByID != nil {
+		if sh.GrantedBy != nil && sh.GrantedBy.Name != "" {
+			granterName = sh.GrantedBy.Name
+		} else {
+			var u models.User
+			if err := s.repo.(*repository).db.First(&u, "id = ?", *sh.GrantedByID).Error; err == nil {
+				granterName = u.Name
+			}
+		}
+	}
+
+	var targetOrgName string
+	if sh.TargetOrgID != nil {
+		var o models.Organization
+		if err := s.repo.(*repository).db.First(&o, "id = ?", *sh.TargetOrgID).Error; err == nil {
+			targetOrgName = o.OrganizationName
+		}
+	}
+
+	return &FileShareResponse{
+		ID:            sh.ID,
+		FileID:        sh.FileID,
+		UserID:        sh.UserID,
+		Status:        sh.Status,
+		Remarks:       sh.Remarks,
+		GrantedByID:   sh.GrantedByID,
+		ExpiresAt:     sh.ExpiresAt,
+		TargetOrgID:   sh.TargetOrgID,
+		CreatedAt:     sh.CreatedAt,
+		UpdatedAt:     sh.UpdatedAt,
+		FileTitle:     fileTitle,
+		FileNumber:    fileNumber,
+		Requester:     requesterName,
+		GrantedBy:     granterName,
+		TargetOrgName: targetOrgName,
+	}
+}
+
+func stampUserWatermarkOnPDF(pdfPath string, user models.User, clientIP string) error {
+	if !strings.HasSuffix(strings.ToLower(pdfPath), ".pdf") {
+		return nil
+	}
+
+	tempPNG, err := generateTransparentWatermarkPNG(user.Name, user.Email, clientIP)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tempPNG)
+
+	tempOutPDF := pdfPath + ".watermarked"
+	// Scale absolute 0.75, position: center, opacity: 0.2
+	desc := "scale:0.75 abs, pos:c, rot:30"
+
+	wm, err := pdfcpu.ParseImageWatermarkDetails(tempPNG, desc, true, types.POINTS)
+	if err != nil {
+		return err
+	}
+
+	err = api.AddWatermarksFile(pdfPath, tempOutPDF, nil, wm, nil)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(tempOutPDF, pdfPath)
+	if err != nil {
+		os.Remove(tempOutPDF)
+		return err
+	}
+
+	return nil
+}
+
+func generateTransparentWatermarkPNG(userName, userEmail, clientIP string) (string, error) {
+	// Large canvas to cover the whole page when tiled/scaled
+	img := image.NewRGBA(image.Rect(0, 0, 800, 800))
+
+	// Draw diagonal repeated text watermark with a light transparent slate color
+	textColor := color.RGBA{100, 116, 139, 32} // 32 is ~12.5% opacity (semi-transparent)
+	d := &font.Drawer{
+		Dst:  img,
+		Src:  image.NewUniform(textColor),
+		Face: basicfont.Face7x13,
+	}
+
+	timeStr := time.Now().Format("2006-01-02 15:04:05 MST")
+	watermarkText := fmt.Sprintf("CONFIDENTIAL ACCESS BY %s (%s) | IP: %s | TIME: %s", strings.ToUpper(userName), userEmail, clientIP, timeStr)
+
+	// Draw watermark text at multiple vertical offsets to cover the page
+	positions := []int{80, 200, 320, 440, 560, 680}
+	for _, posY := range positions {
+		// Stagger text starting offsets
+		d.Dot = fixed.P(30, posY)
+		d.DrawString(watermarkText)
+		
+		d.Dot = fixed.P(350, posY+60)
+		d.DrawString(watermarkText)
+	}
+
+	tempFile, err := os.CreateTemp("", "doc-watermark-*.png")
+	if err != nil {
+		return "", err
+	}
+	defer tempFile.Close()
+
+	if err := png.Encode(tempFile, img); err != nil {
+		os.Remove(tempFile.Name())
+		return "", err
+	}
+
+	return tempFile.Name(), nil
+}
+
+func (s *service) GetOrgForSchool(schoolID uuid.UUID) (*models.Organization, error) {
+	var org models.Organization
+	if err := s.repo.(*repository).db.First(&org, "tenant_id = ?", schoolID).Error; err != nil {
+		return nil, err
+	}
+	return &org, nil
+}
+
+func (s *service) GetOrgAncestors(orgID uuid.UUID) ([]uuid.UUID, error) {
+	var ancestors []uuid.UUID
+	currID := orgID
+	visited := make(map[uuid.UUID]bool)
+	for {
+		if visited[currID] {
+			break
+		}
+		visited[currID] = true
+
+		var org models.Organization
+		if err := s.repo.(*repository).db.First(&org, "id = ?", currID).Error; err != nil {
+			break
+		}
+		if org.ParentOrgID == nil {
+			break
+		}
+		ancestors = append(ancestors, *org.ParentOrgID)
+		currID = *org.ParentOrgID
+	}
+	return ancestors, nil
+}
+
+func (s *service) FindCommonParentOrg(org1ID, org2ID uuid.UUID) (*uuid.UUID, error) {
+	if org1ID == org2ID {
+		var org models.Organization
+		if err := s.repo.(*repository).db.First(&org, "id = ?", org1ID).Error; err == nil {
+			return org.ParentOrgID, nil
+		}
+		return nil, errors.New("org not found")
+	}
+
+	ancestors1, _ := s.GetOrgAncestors(org1ID)
+	ancestors1 = append([]uuid.UUID{org1ID}, ancestors1...)
+
+	ancestors2, _ := s.GetOrgAncestors(org2ID)
+	ancestors2 = append([]uuid.UUID{org2ID}, ancestors2...)
+
+	for _, a1 := range ancestors1 {
+		for _, a2 := range ancestors2 {
+			if a1 == a2 {
+				return &a1, nil
+			}
+		}
+	}
+	return nil, nil
 }

@@ -357,3 +357,28 @@ func (base *PeerConnection) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 	return
 }
+
+type FileShare struct {
+	ID          uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	FileID      uuid.UUID  `gorm:"type:uuid;not null;index"`
+	UserID      uuid.UUID  `gorm:"type:uuid;not null;index"`
+	Status      string     `gorm:"size:50;not null;default:'pending'"` // pending, approved, rejected
+	Remarks     string     `gorm:"type:text"`                          // Request reason
+	GrantedByID *uuid.UUID `gorm:"type:uuid;index"`
+	ExpiresAt   *time.Time `gorm:"index"`
+	TargetOrgID *uuid.UUID `gorm:"type:uuid;index"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+
+	File      File          `gorm:"foreignKey:FileID"`
+	User      User          `gorm:"foreignKey:UserID"`
+	GrantedBy *User         `gorm:"foreignKey:GrantedByID"`
+	TargetOrg *Organization `gorm:"foreignKey:TargetOrgID"`
+}
+
+func (base *FileShare) BeforeCreate(tx *gorm.DB) (err error) {
+	if base.ID == uuid.Nil {
+		base.ID = uuid.New()
+	}
+	return
+}

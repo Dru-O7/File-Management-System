@@ -53,6 +53,7 @@ export class DetailsComponent implements OnInit {
   showForwardSelect: boolean = false;
   loading: boolean = false;
   activeDetailTab: 'workspace' | 'activity' = 'workspace';
+  source: string = '';
 
   constructor(
     private route: ActivatedRoute,
@@ -69,12 +70,39 @@ export class DetailsComponent implements OnInit {
   get canViewWorkspace(): boolean {
     const currentUserId = this.currentUser?.ID || this.currentUser?.id;
     if (this.isFileType && this.file) {
-      return this.file.CurrentOwnerID === currentUserId && this.file.Status !== 'Closed' && this.file.Status !== 'Archived';
+      if (this.source === 'repo' && (this.file.Status === 'Closed' || this.file.Status === 'Archived')) {
+        return true;
+      }
+      if (this.file.Status === 'Closed' || this.file.Status === 'Archived') {
+        return false;
+      }
+      return this.file.CurrentOwnerID === currentUserId;
     }
     if (!this.isFileType && this.document) {
       return this.document.CurrentOwnerID === currentUserId;
     }
     return false;
+  }
+
+  get watermarkSvgDataUri(): string {
+    if (!this.currentUser) return '';
+    const name = this.currentUser.Name || this.currentUser.name || '';
+    const email = this.currentUser.Email || this.currentUser.email || '';
+    const dateStr = new Date().toLocaleDateString();
+    
+    const text = `CONFIDENTIAL ACCESS BY ${name} (${email}) - Date: ${dateStr}`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="450" height="350">
+      <text x="30" y="175" fill="#0f172a" font-family="sans-serif" font-size="12" font-weight="bold" transform="rotate(-25, 30, 175)" opacity="0.85">
+        ${text}
+      </text>
+    </svg>`;
+    
+    try {
+      const base64Svg = btoa(unescape(encodeURIComponent(svg)));
+      return `url('data:image/svg+xml;base64,${base64Svg}')`;
+    } catch (e) {
+      return '';
+    }
   }
 
   ngOnInit() {
@@ -89,7 +117,7 @@ export class DetailsComponent implements OnInit {
         const currentId = this.currentUser?.ID || this.currentUser?.id;
         const currentRole = this.currentUser?.Role || this.currentUser?.role;
         const currentSchoolId = this.currentUser?.SchoolID || this.currentUser?.school_id;
-        const canSeeAll = this.currentUser?.isAdmin || currentRole === 'School Admin' || currentRole === 'SuperAdmin' || currentRole === 'Admin' || currentRole === 'DHE';
+        const canSeeAll = this.currentUser?.isAdmin || currentRole === 'School Admin' || currentRole === 'SuperAdmin' || currentRole === 'Admin' || currentRole === 'DHE' || (currentRole && currentRole.startsWith('Admin '));
         
         this.users = res.filter(u => {
           if ((u.id || u.ID) === currentId) return false;
@@ -112,6 +140,7 @@ export class DetailsComponent implements OnInit {
 
     this.route.queryParams.subscribe((queryParams) => {
       this.isFileType = queryParams['type'] === 'file';
+      this.source = queryParams['source'] || '';
     });
 
     this.route.paramMap.subscribe((params) => {
@@ -489,7 +518,7 @@ export class DetailsComponent implements OnInit {
 
   loadFileDetails(id: string) {
     this.loading = true;
-    this.api.getFileDetails(id).subscribe({
+    this.api.getFileDetails(id, this.source).subscribe({
       next: (res) => {
         console.log('Loaded file details:', res.file);
         console.log('Current user:', this.currentUser);
@@ -510,7 +539,9 @@ export class DetailsComponent implements OnInit {
         this.loading = false;
         
         const currentUserId = this.currentUser?.ID || this.currentUser?.id;
-        if (this.file.CurrentOwnerID !== currentUserId || this.file.Status === 'Closed' || this.file.Status === 'Archived') {
+        if (this.source === 'repo' && (this.file.Status === 'Closed' || this.file.Status === 'Archived')) {
+          this.activeDetailTab = 'workspace';
+        } else if (this.file.Status === 'Closed' || this.file.Status === 'Archived' || this.file.CurrentOwnerID !== currentUserId) {
           this.activeDetailTab = 'activity';
         } else {
           this.activeDetailTab = 'workspace';
