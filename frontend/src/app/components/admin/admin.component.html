@@ -727,9 +727,9 @@
           </div>
         </div>
         <div class="form-group" *ngIf="isSuperAdmin">
-          <label for="admin-dt-school">School/Organization *</label>
+          <label for="admin-dt-school">School/Organization</label>
           <select id="admin-dt-school" [(ngModel)]="docTypeForm.school_id">
-            <option [ngValue]="null" disabled>Select school/organization…</option>
+            <option [ngValue]="null">— Global (All Organizations) —</option>
             <option *ngFor="let s of schools" [value]="s.ID">{{ s.Name }}</option>
           </select>
         </div>

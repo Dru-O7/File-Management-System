@@ -388,7 +388,7 @@ export class AdminComponent implements OnInit {
     this.docTypeForm = {
       name: '', slug: '', workflow_stages: '[]', required_fields: '[]',
       sla_hours: 72,  active: true,
-      school_id: this.schools[0]?.ID || null
+      school_id: null
     };
     this.docTypeError = '';
     this.showDocTypeModal = true;

@@ -385,10 +385,12 @@ func (s *service) GetAllDocumentTypes(actorRole string, actorSchoolID *uuid.UUID
 		visible := false
 		if actorRole == "SuperAdmin" {
 			visible = true
+		} else if dt.SchoolID == nil {
+			visible = true
 		} else {
 			// 1. Legacy/default scoping: no creator role set, but belongs to actor's school
 			if dt.CreatorRoleID == nil {
-				if actorSchoolID != nil && dt.SchoolID == *actorSchoolID {
+				if actorSchoolID != nil && *dt.SchoolID == *actorSchoolID {
 					visible = true
 				}
 			} else {
@@ -406,10 +408,14 @@ func (s *service) GetAllDocumentTypes(actorRole string, actorSchoolID *uuid.UUID
 		}
 
 		if visible {
+			schoolName := "Global (All Organizations)"
+			if dt.SchoolID != nil && dt.School.Name != "" {
+				schoolName = dt.School.Name
+			}
 			resp = append(resp, DocumentTypeResponse{
 				ID:             dt.ID,
 				SchoolID:       dt.SchoolID,
-				SchoolName:     dt.School.Name,
+				SchoolName:     schoolName,
 				Name:           dt.Name,
 				Slug:           dt.Slug,
 				WorkflowStages: dt.WorkflowStages,
@@ -467,12 +473,11 @@ func (s *service) CreateDocumentType(req CreateDocTypeRequest, actorRole string,
 		}
 	}
 
-	schoolID := req.SchoolID
-	if schoolID == uuid.Nil && actorSchoolID != nil {
-		schoolID = *actorSchoolID
-	}
-	if schoolID == uuid.Nil {
-		return nil, errors.New("school/organization ID is required")
+	var schoolID *uuid.UUID
+	if req.SchoolID != nil && *req.SchoolID != uuid.Nil {
+		schoolID = req.SchoolID
+	} else if actorSchoolID != nil {
+		schoolID = actorSchoolID
 	}
 
 	dt := &models.DocumentType{
@@ -490,9 +495,17 @@ func (s *service) CreateDocumentType(req CreateDocTypeRequest, actorRole string,
 		return nil, err
 	}
 
+	schoolName := "Global (All Organizations)"
+	if dt.SchoolID != nil {
+		if s, err := s.repo.GetSchoolByID(*dt.SchoolID); err == nil && s != nil {
+			schoolName = s.Name
+		}
+	}
+
 	return &DocumentTypeResponse{
 		ID:             dt.ID,
 		SchoolID:       dt.SchoolID,
+		SchoolName:     schoolName,
 		Name:           dt.Name,
 		Slug:           dt.Slug,
 		WorkflowStages: dt.WorkflowStages,
@@ -540,15 +553,23 @@ func (s *service) UpdateDocumentType(id uuid.UUID, req UpdateDocTypeRequest) (*D
 		return nil, err
 	}
 
+	schoolName := "Global (All Organizations)"
+	if dt.SchoolID != nil {
+		if s, err := s.repo.GetSchoolByID(*dt.SchoolID); err == nil && s != nil {
+			schoolName = s.Name
+		}
+	}
+
 	return &DocumentTypeResponse{
-		ID:                dt.ID,
-		SchoolID:          dt.SchoolID,
-		Name:              dt.Name,
-		Slug:              dt.Slug,
-		WorkflowStages:    dt.WorkflowStages,
-		RequiredFields:    dt.RequiredFields,
-		SlaHours:          0,
-		Active:            dt.Active,
+		ID:             dt.ID,
+		SchoolID:       dt.SchoolID,
+		SchoolName:     schoolName,
+		Name:           dt.Name,
+		Slug:           dt.Slug,
+		WorkflowStages: dt.WorkflowStages,
+		RequiredFields: dt.RequiredFields,
+		SlaHours:       0,
+		Active:         dt.Active,
 	}, nil
 }
 
