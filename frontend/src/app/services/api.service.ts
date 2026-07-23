@@ -282,4 +282,12 @@ export class ApiService {
   resolveAccessRequest(shareId: string, status: 'approved' | 'rejected', durationHours: number) {
     return this.http.post<any>(`${this.apiUrl}/central-repo/approve`, { share_id: shareId, status: status, duration_hours: durationHours });
   }
+
+  getResolvedAccessRequests() {
+    return this.http.get<any[]>(`${this.apiUrl}/central-repo/requests/history`);
+  }
+
+  revokeFileAccess(fileId: string) {
+    return this.http.post<any>(`${this.apiUrl}/central-repo/revoke`, { file_id: fileId });
+  }
 }

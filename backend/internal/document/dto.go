@@ -104,6 +104,7 @@ type FileResponse struct {
 	CreatedAt      time.Time         `json:"CreatedAt"`
 	UpdatedAt      time.Time         `json:"UpdatedAt"`
 	HasAccess      bool              `json:"HasAccess"`
+	AccessStatus   string            `json:"AccessStatus"`
 
 	Creator      models.User        `json:"Creator"`
 	CurrentOwner models.User        `json:"CurrentOwner"`

@@ -67,7 +67,9 @@ type Service interface {
 	ListClosedOrArchivedFiles(authenticatedUserID uuid.UUID, search string) ([]FileResponse, error)
 	RequestFileAccess(fileID, authenticatedUserID uuid.UUID, remarks string) (*FileShareResponse, error)
 	ListPendingAccessRequests(authenticatedUserID uuid.UUID) ([]FileShareResponse, error)
+	ListResolvedAccessRequests(authenticatedUserID uuid.UUID) ([]FileShareResponse, error)
 	ApproveOrRejectAccessRequest(shareID, authenticatedUserID uuid.UUID, status string, durationHours int) (*FileShareResponse, error)
+	RevokeFileAccess(fileID, userID uuid.UUID) error
 	CheckFileAccess(fileID, userID uuid.UUID) (bool, error)
 }
 
@@ -2397,6 +2399,14 @@ func (s *service) ListClosedOrArchivedFiles(authenticatedUserID uuid.UUID, searc
 		hasAccess, _ := s.CheckFileAccess(f.ID, authenticatedUserID)
 		res := s.toFileResponse(&f)
 		res.HasAccess = hasAccess
+
+		share, err := s.repo.GetFileShare(f.ID, authenticatedUserID)
+		if err == nil {
+			res.AccessStatus = string(share.Status)
+		} else {
+			res.AccessStatus = ""
+		}
+
 		responses[i] = *res
 	}
 	return responses, nil
@@ -2867,4 +2877,65 @@ func (s *service) FindCommonParentOrg(org1ID, org2ID uuid.UUID) (*uuid.UUID, err
 		}
 	}
 	return nil, nil
+}
+
+func (s *service) ListResolvedAccessRequests(authenticatedUserID uuid.UUID) ([]FileShareResponse, error) {
+	var user models.User
+	if err := s.repo.(*repository).db.First(&user, "id = ?", authenticatedUserID).Error; err != nil {
+		return nil, err
+	}
+
+	var shares []models.FileShare
+	err := s.repo.(*repository).db.Preload("File").Preload("User").Preload("GrantedBy").
+		Where("status IN ?", []string{"approved", "rejected", "revoked"}).Order("updated_at desc").Find(&shares).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var filteredShares []models.FileShare
+	for _, sh := range shares {
+		if s.userCanApprove(user, sh) {
+			filteredShares = append(filteredShares, sh)
+		}
+	}
+
+	responses := make([]FileShareResponse, len(filteredShares))
+	for i, sh := range filteredShares {
+		responses[i] = *s.toFileShareResponse(&sh)
+	}
+	return responses, nil
+}
+
+func (s *service) RevokeFileAccess(fileID, userID uuid.UUID) error {
+	var share models.FileShare
+	err := s.repo.(*repository).db.First(&share, "file_id = ? AND user_id = ? AND status IN ?", fileID, userID, []string{"approved", "pending"}).Error
+	if err != nil {
+		return errors.New("no active approved or pending access request found for this file")
+	}
+
+	share.Status = "revoked"
+	share.UpdatedAt = time.Now()
+
+	if err := s.repo.(*repository).db.Save(&share).Error; err != nil {
+		return err
+	}
+
+	// Create workflow audit log for revocation
+	file, err := s.repo.GetFileByID(fileID)
+	if err == nil {
+		history := &models.WorkflowHistory{
+			ID:        uuid.New(),
+			SchoolID:  file.SchoolID,
+			FileID:    &fileID,
+			ActorID:   userID,
+			Action:    "Sent Back",
+			Remarks:   "Access voluntarily revoked by user",
+			Stage:     1,
+			Version:   1,
+			EventType: "access_revocation",
+		}
+		_ = s.repo.CreateHistory(history)
+	}
+
+	return nil
 }

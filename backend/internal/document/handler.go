@@ -773,3 +773,37 @@ func (h *Handler) ApproveOrRejectAccessRequest(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, res)
 }
+
+func (h *Handler) ListResolvedAccessRequests(c echo.Context) error {
+	authenticatedUserIDStr := c.Get("user_id").(string)
+	userID, _ := uuid.Parse(authenticatedUserIDStr)
+
+	res, err := h.service.ListResolvedAccessRequests(userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) RevokeFileAccess(c echo.Context) error {
+	authenticatedUserIDStr := c.Get("user_id").(string)
+	userID, _ := uuid.Parse(authenticatedUserIDStr)
+
+	var req struct {
+		FileID string `json:"file_id"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	}
+
+	fileID, err := uuid.Parse(req.FileID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid file ID"})
+	}
+
+	err = h.service.RevokeFileAccess(fileID, userID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]string{"message": "Access revoked successfully"})
+}

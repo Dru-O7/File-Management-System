@@ -19,6 +19,7 @@ export class CentralRepositoryComponent implements OnInit {
   pendingRequests: any[] = [];
   currentUser: any = null;
   searchText = '';
+  statusFilter: 'all' | 'Closed' | 'Archived' = 'all';
   activeView: 'repository' | 'requests' = 'repository';
 
   // Request Access Modal state
@@ -59,7 +60,7 @@ export class CentralRepositoryComponent implements OnInit {
     this.api.getClosedOrArchivedFiles(this.searchText).subscribe({
       next: (res) => {
         this.files = res || [];
-        this.filteredFiles = this.files;
+        this.applyFilter();
         this.updateCounters();
         this.loading = false;
       },
@@ -82,6 +83,19 @@ export class CentralRepositoryComponent implements OnInit {
         console.error('Failed to load pending access requests:', err);
       }
     });
+  }
+
+  applyFilter() {
+    let temp = this.files;
+    if (this.statusFilter !== 'all') {
+      temp = temp.filter(f => f.Status === this.statusFilter);
+    }
+    this.filteredFiles = temp;
+  }
+
+  onFilterChange(status: 'all' | 'Closed' | 'Archived') {
+    this.statusFilter = status;
+    this.applyFilter();
   }
 
   updateCounters() {
@@ -150,10 +164,28 @@ export class CentralRepositoryComponent implements OnInit {
     });
   }
 
-  getExpiryLabel(file: any): string {
-    // If not a standard user access model or doesn't have an expiry
-    if (file.HasAccess) return 'Available';
-    return 'No Access';
+  revokeAccess(file: any) {
+    if (confirm(`Are you sure you want to revoke your access to file "${file.Title}"?`)) {
+      this.loading = true;
+      this.api.revokeFileAccess(file.ID).subscribe({
+        next: () => {
+          this.loadData();
+        },
+        error: (err) => {
+          console.error('Failed to revoke file access:', err);
+          this.loading = false;
+          alert(err.error?.error || 'Failed to revoke access.');
+        }
+      });
+    }
+  }
+
+  isStandardUserWithAccess(file: any): boolean {
+    if (!this.currentUser) return false;
+    const role = this.currentUser.Role || this.currentUser.role;
+    const isTopAdmin = role === 'SuperAdmin' || role === 'Admin' || role === 'School Admin' || role === 'Principal' || role === 'DHE' || (role && role.startsWith('Admin '));
+    if (isTopAdmin) return false;
+    return file.HasAccess || file.AccessStatus === 'pending' || file.AccessStatus === 'approved';
   }
 
   goToDetails(file: any) {

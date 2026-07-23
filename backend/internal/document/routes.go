@@ -48,5 +48,7 @@ func RegisterRoutes(g *echo.Group, handler *Handler, jwtSecret []byte) {
 	r.GET("/central-repo/files", handler.ListClosedOrArchivedFiles)
 	r.POST("/central-repo/request", handler.RequestFileAccess)
 	r.GET("/central-repo/requests", handler.ListPendingAccessRequests)
+	r.GET("/central-repo/requests/history", handler.ListResolvedAccessRequests)
 	r.POST("/central-repo/approve", handler.ApproveOrRejectAccessRequest)
+	r.POST("/central-repo/revoke", handler.RevokeFileAccess)
 }
