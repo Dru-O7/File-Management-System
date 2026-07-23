@@ -561,34 +561,7 @@
             Utilities
           </div>
 
-          <!-- Compose Email -->
-          <button
-            class="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-lg transition-all border-0 cursor-pointer text-left bg-transparent text-[var(--text-secondary)] hover:bg-[var(--background)]"
-            (click)="
-              openComposeEmailModal();
-              showProfileDropdown = false;
-              showNotificationsDropdown = false;
-              $event.stopPropagation()
-            "
-            [title]="isSidebarCollapsed ? 'Compose Email' : ''"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="w-4.5 h-4.5 flex-shrink-0"
-            >
-              <rect width="20" height="16" x="2" y="4" rx="2" />
-              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-            </svg>
-            <span *ngIf="!isSidebarCollapsed">Compose Email</span>
-          </button>
+
 
           <!-- Notifications -->
           <button
@@ -774,12 +747,12 @@
               </svg>
             </button>
 
-            <!-- Compose In-App Email Button -->
+            <!-- Internal Messages Button -->
             <button
               class="p-1.5 rounded-lg hover:bg-[var(--background)] hover:text-[var(--text-primary)] cursor-pointer border-0 bg-transparent text-slate-400 flex items-center"
-              title="Compose Email"
+              title="Internal Messages"
               (click)="
-                openComposeEmailModal();
+                router.navigate(['/message']);
                 showProfileDropdown = false;
                 showNotificationsDropdown = false;
                 $event.stopPropagation()
@@ -1074,160 +1047,6 @@
           Sign Out
         </button>
       </div>
-    </div>
-  </div>
-
-  <!-- Compose Email Modal Overlay -->
-  <div
-    *ngIf="showComposeEmailModal"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs"
-    (click)="closeComposeEmailModal()"
-  >
-    <div
-      class="relative w-full max-w-md bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-xl text-[var(--text-primary)] animate-none"
-      (click)="$event.stopPropagation()"
-    >
-      <div
-        class="flex justify-between items-center mb-4 border-b border-[var(--border)] pb-3"
-      >
-        <h3 class="text-base font-bold flex items-center gap-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="w-5 h-5 text-[var(--primary)]"
-          >
-            <rect width="20" height="16" x="2" y="4" rx="2" />
-            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-          </svg>
-          Email Directory
-        </h3>
-        <button
-          class="p-1.5 rounded-lg hover:bg-[var(--background)] text-slate-500 border-0 bg-transparent flex items-center cursor-pointer"
-          (click)="closeComposeEmailModal()"
-        >
-          <svg
-            class="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
-
-      <p class="text-xs text-[var(--text-secondary)] mb-4 leading-relaxed">
-        Select a recipient from the directory to compose an email using your
-        system's default email client.
-      </p>
-
-      <form (submit)="openMailto($event)">
-        <!-- Recipient selection -->
-        <div class="mb-4">
-          <label
-            for="compose-to"
-            class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2"
-            >Recipient</label
-          >
-          <select
-            id="compose-to"
-            class="app-input bg-[var(--background)] text-[var(--text-primary)] border-[var(--border)]"
-            [(ngModel)]="composeTo"
-            name="composeTo"
-            required
-          >
-            <option value="" disabled selected>-- Select a Recipient --</option>
-            <option
-              *ngFor="let u of emailRecipients"
-              [value]="u.Email || u.email"
-            >
-              {{ u.Name || u.name }} ({{ u.Email || u.email }}) -
-              {{ u.Role || u.role }}
-            </option>
-          </select>
-        </div>
-
-        <!-- Subject -->
-        <div class="mb-4">
-          <label
-            for="compose-subject"
-            class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2"
-            >Subject (Optional)</label
-          >
-          <input
-            id="compose-subject"
-            type="text"
-            class="app-input"
-            placeholder=""
-            [(ngModel)]="composeSubject"
-            name="composeSubject"
-          />
-        </div>
-
-        <!-- Body -->
-        <div class="mb-5">
-          <label
-            for="compose-body"
-            class="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2"
-            >Message Body (Optional)</label
-          >
-          <textarea
-            id="compose-body"
-            rows="4"
-            class="app-input resize-none"
-            placeholder=""
-            [(ngModel)]="composeBody"
-            name="composeBody"
-          ></textarea>
-        </div>
-
-        <!-- Action buttons -->
-        <div
-          class="flex justify-end gap-3 border-t border-[var(--border)] pt-4"
-        >
-          <button
-            type="button"
-            class="app-btn-secondary py-2 px-4 cursor-pointer"
-            (click)="closeComposeEmailModal()"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            class="app-btn-primary py-2 px-5 cursor-pointer flex items-center gap-2"
-            [disabled]="!composeTo"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="w-4 h-4"
-            >
-              <path d="m22 2-7 20-4-9-9-4Z" />
-              <path d="M22 2 11 13" />
-            </svg>
-            Compose Email
-          </button>
-        </div>
-      </form>
     </div>
   </div>
 </ng-container>

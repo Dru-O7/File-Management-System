@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef } from '@angular/core';
 import { RouterOutlet, Router } from '@angular/router';
 import { AuthService } from './services/auth.service';
 import { ApiService } from './services/api.service';
@@ -21,16 +21,6 @@ export class AppComponent implements OnInit, OnDestroy {
   searchQuery: string = '';
   activeTab: string = 'pending_me';
   private intervalId: any;
- 
-  // Compose Email Modal States
-  showComposeEmailModal: boolean = false;
-  emailRecipients: any[] = [];
-  composeTo: string = '';
-  composeSubject: string = '';
-  composeBody: string = '';
-  sendingEmail: boolean = false;
-  emailSendError: string = '';
-  emailSendSuccess: string = '';
 
   // Sidebar & Category States
   isSidebarCollapsed: boolean = false;
@@ -182,47 +172,6 @@ export class AppComponent implements OnInit, OnDestroy {
       this.router.navigate(['/details', n.DocumentID]);
     }
     this.showNotificationsDropdown = false;
-  }
- 
-  openComposeEmailModal() {
-    this.showComposeEmailModal = true;
-    this.emailSendError = '';
-    this.emailSendSuccess = '';
-    this.composeTo = '';
-    this.composeSubject = '';
-    this.composeBody = '';
-    this.api.getUsers().subscribe({
-      next: (users) => {
-        this.emailRecipients = users || [];
-      },
-      error: (err) => {
-        console.error('Failed to load users for email compose modal:', err);
-      }
-    });
-  }
- 
-  closeComposeEmailModal() {
-    this.showComposeEmailModal = false;
-  }
- 
-  openMailto(event: Event) {
-    event.preventDefault();
-    if (!this.composeTo) return;
-    
-    let mailtoUrl = `mailto:${this.composeTo}`;
-    const params: string[] = [];
-    if (this.composeSubject) {
-      params.push(`subject=${encodeURIComponent(this.composeSubject)}`);
-    }
-    if (this.composeBody) {
-      params.push(`body=${encodeURIComponent(this.composeBody)}`);
-    }
-    if (params.length > 0) {
-      mailtoUrl += `?${params.join('&')}`;
-    }
-    
-    window.location.href = mailtoUrl;
-    this.closeComposeEmailModal();
   }
 
   logout() {
