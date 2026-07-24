@@ -35,6 +35,7 @@ func Init(databaseURL string) *gorm.DB {
 		&models.Organization{},
 		&models.PeerConnection{},
 		&models.FileShare{},
+		&models.Message{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)

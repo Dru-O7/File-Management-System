@@ -1,0 +1,302 @@
+<div class="h-[calc(100vh-6rem)] flex flex-col md:flex-row bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-md overflow-hidden">
+
+  <!-- Toast Notification Feedback -->
+  <div 
+    *ngIf="toastMessage" 
+    class="fixed top-6 right-6 z-50 px-4 py-3 rounded-lg shadow-xl text-xs font-semibold flex items-center gap-2 border transition-all duration-300"
+    [ngClass]="toastType === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-200 dark:border-emerald-800' : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950 dark:text-rose-200 dark:border-rose-800'"
+  >
+    <span>{{ toastMessage }}</span>
+  </div>
+
+  <!-- LEFT SIDEBAR: Conversation Threads & User Search -->
+  <div class="w-full md:w-80 lg:w-96 bg-[var(--background)] border-b md:border-b-0 md:border-r border-[var(--border)] flex flex-col flex-shrink-0">
+    
+    <!-- Sidebar Header -->
+    <div class="p-4 border-b border-[var(--border)] flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <h2 class="text-base font-extrabold text-[var(--text-main)] tracking-tight">Messages</h2>
+        <span *ngIf="totalUnreadCount > 0" class="px-2 py-0.5 text-[10px] font-bold bg-blue-600 text-white rounded-full">
+          {{ totalUnreadCount }} unread
+        </span>
+      </div>
+      <button 
+        (click)="activeTab = activeTab === 'search' ? 'chats' : 'search'"
+        class="p-2 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 cursor-pointer border-0 transition-colors flex items-center gap-1 text-xs font-bold"
+        [title]="activeTab === 'search' ? 'Back to Chats' : 'New Chat'"
+      >
+        <svg *ngIf="activeTab === 'chats'" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>
+        </svg>
+        <span *ngIf="activeTab === 'chats'">New</span>
+        <span *ngIf="activeTab === 'search'" class="text-slate-500 font-normal">Close</span>
+      </button>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="p-3 border-b border-[var(--border)] relative">
+      <div class="relative">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3.5 top-3 text-[var(--text-muted)]">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+        </svg>
+        <input 
+          type="text"
+          [(ngModel)]="searchQuery"
+          (input)="onSearchInput()"
+          (keyup.enter)="searchExactEmail()"
+          placeholder="Search name or exact email..."
+          class="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
+        />
+        <div *ngIf="isSearching" class="absolute right-3 top-2.5">
+          <div class="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </div>
+
+      <!-- Live Search Results Dropdown Overlay -->
+      <div *ngIf="searchQuery.trim().length >= 1 && searchResults.length > 0" class="absolute left-3 right-3 top-full mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-xl z-30 divide-y divide-[var(--border)] max-h-60 overflow-y-auto">
+        <div 
+          *ngFor="let user of searchResults" 
+          (click)="startChatWithUser(user)"
+          class="p-3 hover:bg-[var(--background)] cursor-pointer flex items-center justify-between transition-colors"
+        >
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+              {{ user.name ? user.name[0].toUpperCase() : 'U' }}
+            </div>
+            <div>
+              <div class="text-xs font-bold text-[var(--text-main)]">{{ user.name }}</div>
+              <div class="text-[10px] text-[var(--text-muted)]">{{ user.email }}</div>
+            </div>
+          </div>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[var(--text-secondary)] font-medium">
+            {{ user.role }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Fallback Search Option -->
+      <div *ngIf="searchQuery.trim().length >= 1 && searchResults.length === 0 && !isSearching" class="mt-2 p-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl flex items-center justify-between text-xs">
+        <span class="text-[11px] text-[var(--text-muted)]">Search exact email?</span>
+        <button (click)="searchExactEmail()" type="button" class="px-2.5 py-1 text-[11px] font-bold bg-blue-600 text-white rounded-lg border-0 cursor-pointer hover:bg-blue-700">
+          Find Email
+        </button>
+      </div>
+
+      <div *ngIf="searchError" class="mt-2 p-2 text-[11px] bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 rounded-lg">
+        {{ searchError }}
+      </div>
+    </div>
+
+    <!-- Active Conversations List -->
+    <div class="flex-1 overflow-y-auto divide-y divide-[var(--border)]/40">
+      
+      <div *ngIf="isLoading" class="p-8 text-center text-xs text-[var(--text-muted)]">
+        <div class="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+        Loading chats...
+      </div>
+
+      <div *ngIf="!isLoading && chatThreads.length === 0" class="p-8 text-center text-xs text-[var(--text-muted)] space-y-1">
+        <div class="font-bold text-[var(--text-main)]">No conversations yet</div>
+        <div class="text-[11px]">Type a name or email in the search bar to start messaging.</div>
+      </div>
+
+      <div
+        *ngFor="let thread of chatThreads"
+        (click)="selectContact(thread.contact)"
+        class="p-3.5 cursor-pointer hover:bg-[var(--surface)] transition-all flex items-start gap-3 relative"
+        [ngClass]="selectedContact?.id === thread.contact.id ? 'bg-[var(--surface)] border-l-4 border-blue-600 shadow-xs' : ''"
+      >
+        <!-- Contact Avatar -->
+        <div class="relative flex-shrink-0">
+          <div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center">
+            {{ thread.contact.name ? thread.contact.name[0].toUpperCase() : 'U' }}
+          </div>
+          <!-- Online status dot -->
+          <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900"></span>
+        </div>
+
+        <!-- Thread Summary Info -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="text-xs font-bold text-[var(--text-main)] truncate" [class.font-black]="thread.unreadCount > 0">
+                {{ thread.contact.name }}
+              </span>
+              <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[var(--text-muted)] flex-shrink-0">
+                {{ thread.contact.role }}
+              </span>
+            </div>
+            <span *ngIf="thread.lastMessage" class="text-[10px] text-[var(--text-muted)] flex-shrink-0">
+              {{ thread.lastMessage.created_at | date:'shortTime' }}
+            </span>
+          </div>
+
+          <div class="flex items-center justify-between mt-1">
+            <p class="text-[11px] text-[var(--text-muted)] truncate pr-2" [class.font-bold]="thread.unreadCount > 0" [class.text-[var(--text-main)]]="thread.unreadCount > 0">
+              {{ thread.lastMessage ? thread.lastMessage.body : 'Click to start chatting' }}
+            </p>
+            <span *ngIf="thread.unreadCount > 0" class="px-1.5 py-0.5 text-[9px] font-bold bg-blue-600 text-white rounded-full flex-shrink-0">
+              {{ thread.unreadCount }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT WORKSPACE: WhatsApp-Style Conversation Pane -->
+  <div class="flex-1 flex flex-col bg-[var(--surface)] relative overflow-hidden">
+    
+    <!-- EMPTY STATE (No chat selected) -->
+    <div *ngIf="!selectedContact" class="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[var(--background)]/30">
+      <div class="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center mb-4 border border-blue-100 dark:border-blue-900">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </div>
+      <h3 class="text-sm font-bold text-[var(--text-main)]">Your Messages</h3>
+      <p class="text-xs text-[var(--text-muted)] max-w-xs mt-1">Select an active conversation on the left or search a contact to begin messaging.</p>
+    </div>
+
+    <!-- ACTIVE CHAT CONVERSATION THREAD -->
+    <div *ngIf="selectedContact" class="flex-1 flex flex-col h-full overflow-hidden">
+      
+      <!-- Chat Header Bar -->
+      <div class="px-6 py-3.5 border-b border-[var(--border)] bg-[var(--surface)] flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="relative">
+            <div class="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shadow-xs">
+              {{ selectedContact.name ? selectedContact.name[0].toUpperCase() : 'U' }}
+            </div>
+            <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900"></span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-sm font-bold text-[var(--text-main)]">{{ selectedContact.name }}</h2>
+              <span class="text-[10px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-semibold">
+                {{ selectedContact.role }}
+              </span>
+            </div>
+            <p class="text-[11px] text-[var(--text-muted)]">{{ selectedContact.email }}</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-900">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            Active Now
+          </span>
+        </div>
+      </div>
+
+      <!-- Scrollable Message Bubbles Stream -->
+      <div #chatScrollContainer class="flex-1 p-6 overflow-y-auto space-y-4 bg-[var(--background)]/40">
+        
+        <!-- Date Header Separator -->
+        <div class="flex items-center justify-center my-2">
+          <span class="text-[10px] font-bold text-[var(--text-muted)] bg-[var(--surface)] border border-[var(--border)] px-3 py-1 rounded-full uppercase tracking-wider">
+            Conversation History
+          </span>
+        </div>
+
+        <div *ngIf="activeConversationMessages.length === 0" class="p-8 text-center text-xs text-[var(--text-muted)]">
+          No previous messages with {{ selectedContact.name }}. Send a message below to start chatting!
+        </div>
+
+        <!-- Chat Bubbles Loop -->
+        <div 
+          *ngFor="let msg of activeConversationMessages" 
+          class="flex flex-col"
+          [ngClass]="msg.sender_id === (currentUser?.id || currentUser?.ID) ? 'items-end' : 'items-start'"
+        >
+          <!-- Message Bubble Container -->
+          <div 
+            class="max-w-[75%] md:max-w-[65%] p-3.5 rounded-2xl shadow-xs relative group transition-all"
+            [ngClass]="msg.sender_id === (currentUser?.id || currentUser?.ID) 
+              ? 'bg-blue-600 text-white rounded-br-none' 
+              : 'bg-[var(--surface)] text-[var(--text-main)] border border-[var(--border)] rounded-bl-none'"
+          >
+            <!-- Optional Subject Tag -->
+            <div *ngIf="msg.subject && msg.subject !== 'Chat Message'" class="text-[10px] font-bold mb-1 opacity-80 border-b pb-1" [ngClass]="msg.sender_id === (currentUser?.id || currentUser?.ID) ? 'border-white/20 text-white' : 'border-[var(--border)] text-blue-600'">
+              {{ msg.subject }}
+            </div>
+
+            <!-- Body Message Text -->
+            <div class="text-xs leading-relaxed whitespace-pre-wrap font-sans">
+              {{ msg.body }}
+            </div>
+
+            <!-- Time & Read Status Footer -->
+            <div 
+              class="flex items-center justify-end gap-1 text-[9px] mt-1.5"
+              [ngClass]="msg.sender_id === (currentUser?.id || currentUser?.ID) ? 'text-blue-100' : 'text-[var(--text-muted)]'"
+            >
+              <span>{{ msg.created_at | date:'shortTime' }}</span>
+              <svg *ngIf="msg.sender_id === (currentUser?.id || currentUser?.ID)" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="ml-0.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM INPUT DOCK (WhatsApp Style Send Bar) -->
+      <div class="p-4 border-t border-[var(--border)] bg-[var(--surface)] flex flex-col space-y-2 flex-shrink-0">
+        
+        <!-- Optional Subject Bar -->
+        <div *ngIf="showSubjectInput" class="flex items-center gap-2">
+          <input
+            type="text"
+            [(ngModel)]="chatSubject"
+            placeholder="Subject (Optional)..."
+            class="w-full px-3 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none"
+          />
+          <button (click)="toggleSubjectInput()" type="button" class="text-[10px] text-slate-400 hover:text-slate-600 border-0 bg-transparent cursor-pointer">
+            Close
+          </button>
+        </div>
+
+        <div class="flex items-end gap-3">
+          <!-- Toggle Subject Action -->
+          <button 
+            (click)="toggleSubjectInput()"
+            type="button"
+            title="Add Subject"
+            class="p-2.5 rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--background)] cursor-pointer transition-colors bg-transparent"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="12" y2="18"/>
+            </svg>
+          </button>
+
+          <!-- Input Textarea -->
+          <div class="flex-1 relative">
+            <textarea
+              [(ngModel)]="chatInput"
+              (keyup.enter)="sendMessage()"
+              rows="1"
+              placeholder="Type a message to {{ selectedContact.name }}..."
+              class="w-full px-4 py-2.5 text-xs rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all resize-none min-h-[40px] max-h-24"
+            ></textarea>
+          </div>
+
+          <!-- Send Button -->
+          <button
+            (click)="sendMessage()"
+            [disabled]="isSending || !chatInput.trim()"
+            type="button"
+            class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold border-0 cursor-pointer shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+          >
+            <span *ngIf="isSending" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            <svg *ngIf="!isSending" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            <span class="hidden sm:inline text-xs">Send</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>

@@ -290,4 +290,34 @@ export class ApiService {
   revokeFileAccess(fileId: string) {
     return this.http.post<any>(`${this.apiUrl}/central-repo/revoke`, { file_id: fileId });
   }
+
+  // ── Messaging API Methods ───────────────────────────────────────────────────
+
+  searchUsers(query: string) {
+    return this.http.get<any[]>(`${this.apiUrl}/messages/search-users?q=${encodeURIComponent(query)}`);
+  }
+
+  getUserByEmail(email: string) {
+    return this.http.get<any>(`${this.apiUrl}/messages/by-email?email=${encodeURIComponent(email)}`);
+  }
+
+  sendMessage(recipientId: string, subject: string, body: string) {
+    return this.http.post<any>(`${this.apiUrl}/messages`, {
+      recipient_id: recipientId,
+      subject: subject,
+      body: body
+    });
+  }
+
+  getInboxMessages() {
+    return this.http.get<any[]>(`${this.apiUrl}/messages/inbox`);
+  }
+
+  getSentMessages() {
+    return this.http.get<any[]>(`${this.apiUrl}/messages/sent`);
+  }
+
+  getMessageDetail(id: string) {
+    return this.http.get<any>(`${this.apiUrl}/messages/${id}`);
+  }
 }

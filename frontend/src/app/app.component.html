@@ -101,6 +101,39 @@
           <span *ngIf="!isSidebarCollapsed">Dashboard</span>
         </button>
 
+        <!-- Messages Link -->
+        <button
+          class="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-lg transition-all border-0 cursor-pointer text-left bg-transparent mt-1"
+          [class.bg-[var(--primary-light)]]="router.url.startsWith('/messages')"
+          [class.text-[var(--primary-active)]]="router.url.startsWith('/messages')"
+          [class.text-[var(--text-secondary)]]="!router.url.startsWith('/messages')"
+          [class.hover:bg-[var(--background)]]="!router.url.startsWith('/messages')"
+          (click)="
+            router.navigate(['/messages']);
+            showProfileDropdown = false;
+            showNotificationsDropdown = false;
+            $event.stopPropagation()
+          "
+          [title]="isSidebarCollapsed ? 'Messages' : ''"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="w-4.5 h-4.5 flex-shrink-0"
+          >
+            <rect width="20" height="16" x="2" y="4" rx="2" />
+            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+          </svg>
+          <span *ngIf="!isSidebarCollapsed">Messages</span>
+        </button>
+
         <!-- Section: Inbox -->
         <div class="mt-4 pt-4 border-t border-[var(--border)]/50">
           <div

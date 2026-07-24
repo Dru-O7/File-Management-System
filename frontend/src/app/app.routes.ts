@@ -11,6 +11,7 @@ import { ProfileComponent } from './components/profile/profile.component';
 import { NotFoundComponent } from './components/not-found/not-found.component';
 import { OrgTreeComponent } from './components/org-tree/org-tree.component';
 import { CentralRepositoryComponent } from './components/central-repository/central-repository.component';
+import { MessagesComponent } from './components/messages/messages.component';
 import { authGuard } from './auth.guard';
 import { guestGuard } from './guest.guard';
 import { adminGuard } from './admin.guard';
@@ -24,6 +25,7 @@ export const routes: Routes = [
   { path: 'create-file',component: CreateFileComponent,canActivate: [authGuard] },
   { path: 'history',    component: HistoryComponent,   canActivate: [authGuard] },
   { path: 'central-repo',component: CentralRepositoryComponent, canActivate: [authGuard] },
+  { path: 'messages',   component: MessagesComponent,  canActivate: [authGuard] },
   { path: 'details/:id',component: DetailsComponent,   canActivate: [authGuard] },
   { path: 'profile',    component: ProfileComponent,   canActivate: [authGuard] },
   // Admin route and sub-routes

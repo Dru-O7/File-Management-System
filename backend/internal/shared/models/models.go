@@ -384,3 +384,24 @@ func (base *FileShare) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 	return
 }
+
+type Message struct {
+	ID          uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	SenderID    uuid.UUID `gorm:"type:uuid;not null;index"`
+	RecipientID uuid.UUID `gorm:"type:uuid;not null;index"`
+	Subject     string    `gorm:"size:255;not null"`
+	Body        string    `gorm:"type:text;not null"`
+	IsRead      bool      `gorm:"default:false;not null"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+
+	Sender    User `gorm:"foreignKey:SenderID"`
+	Recipient User `gorm:"foreignKey:RecipientID"`
+}
+
+func (base *Message) BeforeCreate(tx *gorm.DB) (err error) {
+	if base.ID == uuid.Nil {
+		base.ID = uuid.New()
+	}
+	return
+}

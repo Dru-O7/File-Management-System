@@ -9,6 +9,7 @@ import (
 	"office-file-sharing/backend/internal/admin"
 	"office-file-sharing/backend/internal/auth"
 	"office-file-sharing/backend/internal/document"
+	"office-file-sharing/backend/internal/message"
 	"office-file-sharing/backend/internal/shared/config"
 	"office-file-sharing/backend/internal/shared/db"
 	"office-file-sharing/backend/internal/shared/models"
@@ -65,24 +66,28 @@ func main() {
 	userRepo := user.NewRepository(database)
 	docRepo := document.NewRepository(database)
 	adminRepo := admin.NewRepository(database)
+	messageRepo := message.NewRepository(database)
 
 	// Services
 	authService := auth.NewService(authRepo, []byte(cfg.JWTSecret))
 	userService := user.NewService(userRepo)
 	docService := document.NewService(docRepo, "./uploads")
 	adminService := admin.NewService(adminRepo)
+	messageService := message.NewService(messageRepo)
 
 	// Handlers
 	authHandler := auth.NewHandler(authService)
 	userHandler := user.NewHandler(userService, database)
 	docHandler := document.NewHandler(docService)
 	adminHandler := admin.NewHandler(adminService)
+	messageHandler := message.NewHandler(messageService)
 
 	// Register Modular Routes
 	auth.RegisterRoutes(api, authHandler)
 	user.RegisterRoutes(api, userHandler, []byte(cfg.JWTSecret))
 	document.RegisterRoutes(api, docHandler, []byte(cfg.JWTSecret))
 	admin.RegisterRoutes(api, adminHandler, []byte(cfg.JWTSecret), database)
+	message.RegisterRoutes(api, messageHandler, []byte(cfg.JWTSecret))
 
 
 
